@@ -15,12 +15,24 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch($method) {
     case 'POST':
-        $data = json_decode(file_get_contents("php://input"), true);
-        
-        if (!$data) {
-            http_response_code(400);
-            echo json_encode(["erro" => "Dados inválidos"]);
-            break;
+        // Aceitar dados tanto de JSON quanto de formulário
+        if (isset($_POST['data']) && isset($_POST['hora']) && isset($_POST['num_pessoas'])) {
+            // Dados do formulário
+            $data = [
+                'data' => $_POST['data'],
+                'hora' => $_POST['hora'],
+                'num_pessoas' => (int)$_POST['num_pessoas'],
+                'cliente_id' => $_POST['cliente_id'] ?? 1
+            ];
+        } else {
+            // Dados JSON (mantém compatibilidade)
+            $json = json_decode(file_get_contents("php://input"), true);
+            if (!$json) {
+                http_response_code(400);
+                echo json_encode(["erro" => "Dados inválidos"]);
+                break;
+            }
+            $data = $json;
         }
 
         $resultado = $controller->criarReserva($data);
@@ -35,15 +47,58 @@ switch($method) {
         break;
 
     case 'GET':
-        // Implementar busca de reservas
+        // Buscar reservas por cliente
+        $cliente_id = $_GET['cliente_id'] ?? null;
+        if ($cliente_id) {
+            $reservas = $controller->buscarReservasPorCliente($cliente_id);
+            echo json_encode($reservas);
+        } else {
+            http_response_code(400);
+            echo json_encode(["erro" => "ID do cliente necessário"]);
+        }
         break;
 
     case 'PUT':
-        // Implementar edição de reservas
+        // Edição de reservas
+        if (isset($_POST['reserva_id'])) {
+            // Dados do formulário para edição
+            $data = [
+                'reserva_id' => $_POST['reserva_id'],
+                'data' => $_POST['data'],
+                'hora' => $_POST['hora'],
+                'num_pessoas' => (int)$_POST['num_pessoas']
+            ];
+        } else {
+            // Dados JSON
+            $json = json_decode(file_get_contents("php://input"), true);
+            if (!$json || !isset($json['reserva_id'])) {
+                http_response_code(400);
+                echo json_encode(["erro" => "Dados inválidos para edição"]);
+                break;
+            }
+            $data = $json;
+        }
+
+        $resultado = $controller->editarReserva($data);
+        
+        if ($resultado['sucesso']) {
+            echo json_encode($resultado);
+        } else {
+            http_response_code(400);
+            echo json_encode($resultado);
+        }
         break;
 
     case 'DELETE':
-        // Implementar cancelamento de reservas
+        // Cancelamento de reservas
+        $reserva_id = $_GET['reserva_id'] ?? null;
+        if ($reserva_id) {
+            $resultado = $controller->cancelarReserva($reserva_id);
+            echo json_encode($resultado);
+        } else {
+            http_response_code(400);
+            echo json_encode(["erro" => "ID da reserva necessário"]);
+        }
         break;
 
     default:

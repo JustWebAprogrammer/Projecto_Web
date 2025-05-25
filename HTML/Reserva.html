@@ -29,7 +29,7 @@
             <p id="edit-notice" style="display: none; color: #ccc; font-size: 14px;">
                 Lembre-se: modificações só podem ser feitas até 2 horas antes da reserva.
             </p>
-            <form id="reserva-form" action="javascript:void(0);" method="POST" onsubmit="return validateForm(event)">
+            <form id="reserva-form" action="BackEnd/api/reservas.php" method="POST" onsubmit="return validateForm(event)">
                 <div class="form-group">
                     <label for="num-people">Número de Pessoas</label>
                     <input type="number" id="num-people" name="num_people" min="1" max="60" required>
