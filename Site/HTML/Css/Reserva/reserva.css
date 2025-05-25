@@ -1,0 +1,99 @@
+body {
+    background-color: #f7f7ce;
+    font-family: 'Times New Roman', Times, serif;
+    margin: 0;
+    padding-top: 130px;
+    /* Compensar a navbar fixa */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 100vh;
+}
+
+.reserva-section {
+    background-color: #2B341D;
+    color: #f7f7ce;
+    padding: 20px;
+    text-align: center;
+    margin: 20px auto;
+    max-width: 600px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.reserva-section h2 {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.reserva-section p {
+    font-size: 16px;
+    color: #ccc;
+    margin-bottom: 20px;
+}
+
+#reserva-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    max-width: 300px;
+    text-align: left;
+}
+
+.form-group label {
+    font-size: 16px;
+    color: #ccc;
+}
+
+.form-group input {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-family: 'Times New Roman', Times, serif;
+    background-color: #fff;
+    width: 100%;
+}
+
+#reserva-form button {
+    padding: 10px 20px;
+    background-color: #a3b76d;
+    color: #333;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    font-family: 'Times New Roman', Times, serif;
+    transition: background-color 0.3s;
+}
+
+#reserva-form button:hover {
+    background-color: #7f8f55;
+}
+
+.error-message {
+    margin-top: 10px;
+    color: #ff4d4d;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .reserva-section {
+        margin: 20px;
+        padding: 15px;
+    }
+
+    .form-group {
+        max-width: 250px;
+    }
+}
