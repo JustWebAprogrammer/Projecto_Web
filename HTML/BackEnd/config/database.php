@@ -27,13 +27,4 @@ class Database
         return $this->conn;
     }
 }
-
-// **Ação que faltava: criar instância e testar conexão**
-$db = new Database();
-$conn = $db->getConnection();
-
-if ($conn) {
-    echo "Conexão estabelecida com sucesso!";
-} else {
-    echo "Falha na conexão.";
-}
+?>

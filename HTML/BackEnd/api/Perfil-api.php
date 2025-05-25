@@ -11,7 +11,13 @@ if (!verificarLogin()) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Handle both POST and PUT requests
+$method = $_SERVER['REQUEST_METHOD'];
+if ($method === 'POST' && isset($_POST['_method']) && $_POST['_method'] === 'PUT') {
+    $method = 'PUT';
+}
+
+if ($method === 'POST' || $method === 'PUT') {
     try {
         $database = new Database();
         $db = $database->getConnection();
@@ -22,10 +28,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $cliente_logado = obterClienteLogado();
         
-        // Receber dados do formulário
-        $nome = $_POST['nome'] ?? '';
-        $email = $_POST['email'] ?? '';
-        $telemovel = $_POST['telemovel'] ?? '';
+        // Handle JSON data for PUT requests
+        if ($method === 'PUT') {
+            $json_data = json_decode(file_get_contents('php://input'), true);
+            if ($json_data) {
+                $nome = $json_data['nome'] ?? '';
+                $email = $json_data['email'] ?? '';
+                $telemovel = $json_data['telemovel'] ?? '';
+            } else {
+                throw new Exception("Dados JSON inválidos");
+            }
+        } else {
+            // Handle form data for POST requests
+            $nome = $_POST['nome'] ?? '';
+            $email = $_POST['email'] ?? '';
+            $telemovel = $_POST['telemovel'] ?? '';
+        }
         
         // Validações básicas
         if (empty($nome) || empty($email) || empty($telemovel)) {
@@ -75,17 +93,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'telemovel' => $phone_clean
             ];
             
-            header("Location: ../../Perfil.php?sucesso=" . urlencode("Dados atualizados com sucesso!"));
-            exit;
+            if ($method === 'PUT') {
+                echo json_encode([
+                    "sucesso" => true, 
+                    "mensagem" => "Dados atualizados com sucesso!"
+                ]);
+            } else {
+                header("Location: ../../Perfil.php?sucesso=" . urlencode("Dados atualizados com sucesso!"));
+                exit;
+            }
         } else {
             throw new Exception("Erro ao atualizar dados. Tente novamente.");
         }
         
     } catch (Exception $e) {
-        header("Location: ../../Perfil.php?erro=" . urlencode($e->getMessage()));
-        exit;
+        if ($method === 'PUT') {
+            http_response_code(400);
+            echo json_encode(["erro" => $e->getMessage()]);
+        } else {
+            header("Location: ../../Perfil.php?erro=" . urlencode($e->getMessage()));
+            exit;
+        }
     }
 } else {
     http_response_code(405);
     echo json_encode(["erro" => "Método não permitido"]);
 }
+?>

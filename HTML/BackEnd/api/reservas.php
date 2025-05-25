@@ -89,17 +89,23 @@ switch($method) {
         }
         break;
 
-    case 'DELETE':
-        // Cancelamento de reservas
-        $reserva_id = $_GET['reserva_id'] ?? null;
-        if ($reserva_id) {
-            $resultado = $controller->cancelarReserva($reserva_id);
-            echo json_encode($resultado);
-        } else {
-            http_response_code(400);
-            echo json_encode(["erro" => "ID da reserva necessário"]);
-        }
-        break;
+   // In the DELETE case, change:
+case 'DELETE':
+    $reserva_id = $_GET['reserva_id'] ?? null;
+    if (!$reserva_id) {
+        // Try to get from JSON body for proper DELETE requests
+        $json = json_decode(file_get_contents("php://input"), true);
+        $reserva_id = $json['id'] ?? null;
+    }
+    
+    if ($reserva_id) {
+        $resultado = $controller->cancelarReserva($reserva_id);
+        echo json_encode($resultado);
+    } else {
+        http_response_code(400);
+        echo json_encode(["erro" => "ID da reserva necessário"]);
+    }
+    break;
 
     default:
         http_response_code(405);

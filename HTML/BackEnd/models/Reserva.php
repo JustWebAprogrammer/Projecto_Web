@@ -95,8 +95,5 @@ class Reserva {
     }
 }
 
-// Verificar se é uma simulação de PUT via POST
-if ($method === 'POST' && isset($_POST['_method']) && $_POST['_method'] === 'PUT') {
-    $method = 'PUT';
-}
+
 ?>
