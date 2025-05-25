@@ -1,20 +1,28 @@
-// Dados simulados do usuário (serão substituídos pelos dados do backend)
-const userData = {
-    nomeUsuario: 'João Silva',
-    email: 'joao.silva@email.com',
-    telefone: '915 630 555'
-};
-
 // Carregar dados do usuário ao carregar a página
 document.addEventListener('DOMContentLoaded', function() {
-    loadUserData();
+    // Verificar se está logado
+    const clienteLogado = localStorage.getItem('clienteLogado');
+    if (!clienteLogado) {
+        alert('Você precisa fazer login primeiro');
+        window.location.href = 'Login.html';
+        return;
+    }
+
+    const userData = JSON.parse(clienteLogado);
+    loadUserData(userData);
     loadReservations();
 });
 
-function loadUserData() {
-    document.getElementById('nome-usuario').value = userData.nomeUsuario;
+function loadUserData(userData = null) {
+    if (!userData) {
+        const clienteLogado = localStorage.getItem('clienteLogado');
+        if (!clienteLogado) return;
+        userData = JSON.parse(clienteLogado);
+    }
+
+    document.getElementById('nome-usuario').value = userData.nome;
     document.getElementById('email').value = userData.email;
-    document.getElementById('telefone').value = userData.telefone;
+    document.getElementById('telefone').value = userData.telemovel;
 }
 
 function toggleEdit(fieldId) {
@@ -61,21 +69,71 @@ function saveChanges() {
         alert('Por favor, insira um e-mail válido.');
         return;
     }
+
+    // Validar telefone (9 dígitos)
+    const telefoneNumeros = telefone.replace(/\D/g, '');
+    if (telefoneNumeros.length !== 9) {
+        alert('O telefone deve ter exatamente 9 dígitos.');
+        return;
+    }
+
+    // Obter dados do cliente logado
+    const clienteLogado = JSON.parse(localStorage.getItem('clienteLogado'));
     
-    // Aqui você faria a chamada para o backend para salvar os dados
-    console.log('Salvando dados:', { nomeUsuario, email, telefone });
-    
-    // Simular sucesso
-    alert('Dados salvos com sucesso!');
-    
-    // Tornar campos read-only novamente
-    document.getElementById('nome-usuario').readOnly = true;
-    document.getElementById('email').readOnly = true;
-    document.getElementById('telefone').readOnly = true;
-    
-    // Esconder botões
-    document.getElementById('salvar-btn').style.display = 'none';
-    document.getElementById('cancelar-btn').style.display = 'none';
+    // Enviar dados para o backend
+    const dadosAtualizacao = {
+        id: clienteLogado.id,
+        nome: nomeUsuario,
+        email: email,
+        telemovel: telefone
+    };
+
+    // Desabilitar botão durante salvamento
+    const salvarBtn = document.getElementById('salvar-btn');
+    salvarBtn.textContent = 'Salvando...';
+    salvarBtn.disabled = true;
+
+    fetch('BackEnd/api/perfil.php', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dadosAtualizacao)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            // Atualizar dados no localStorage
+            const clienteAtualizado = {
+                ...clienteLogado,
+                nome: nomeUsuario,
+                email: email,
+                telemovel: telefone
+            };
+            localStorage.setItem('clienteLogado', JSON.stringify(clienteAtualizado));
+            
+            alert('Dados salvos com sucesso!');
+            
+            // Tornar campos read-only novamente
+            document.getElementById('nome-usuario').readOnly = true;
+            document.getElementById('email').readOnly = true;
+            document.getElementById('telefone').readOnly = true;
+            
+            // Esconder botões
+            document.getElementById('salvar-btn').style.display = 'none';
+            document.getElementById('cancelar-btn').style.display = 'none';
+        } else {
+            alert('Erro ao salvar dados: ' + (data.erro || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro de conexão. Tente novamente.');
+    })
+    .finally(() => {
+        salvarBtn.textContent = 'Salvar Alterações';
+        salvarBtn.disabled = false;
+    });
 }
 
 function filterReservas(tipo) {
@@ -87,40 +145,90 @@ function filterReservas(tipo) {
     // Adicionar classe active ao botão clicado
     event.target.classList.add('active');
     
-    // Aqui você filtraria as reservas baseado no tipo
     console.log('Filtrando reservas por:', tipo);
     loadReservations(tipo);
 }
 
 function loadReservations(filtro = 'proximas') {
-    // Dados simulados de reservas
-    const reservas = [
-        {
-            data: '28/05/2025',
-            horario: '19:30',
-            pessoas: 4,
-            status: 'Confirmada'
-        },
-        {
-            data: '30/05/2025',
-            horario: '20:00',
-            pessoas: 2,
-            status: 'Pendente'
-        },
-        {
-            data: '02/06/2025',
-            horario: '18:30',
-            pessoas: 6,
-            status: 'Confirmada'
+    const clienteLogado = JSON.parse(localStorage.getItem('clienteLogado'));
+    if (!clienteLogado) return;
+
+    // Buscar reservas do backend
+    fetch(`BackEnd/api/reservas.php?cliente_id=${clienteLogado.id}&filtro=${filtro}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
         }
-    ];
-    
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            displayReservations(data.reservas);
+        } else {
+            // Se não conseguir carregar do backend, usar dados simulados
+            console.warn('Usando dados simulados para reservas');
+            const reservasSimuladas = [
+                {
+                    id: 1,
+                    data: '2025-05-28',
+                    hora: '19:30',
+                    num_pessoas: 4,
+                    status: 'Reservado'
+                },
+                {
+                    id: 2,
+                    data: '2025-05-30',
+                    hora: '20:00',
+                    num_pessoas: 2,
+                    status: 'Reservado'
+                },
+                {
+                    id: 3,
+                    data: '2025-06-02',
+                    hora: '18:30',
+                    num_pessoas: 6,
+                    status: 'Reservado'
+                }
+            ];
+            displayReservations(reservasSimuladas);
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao carregar reservas:', error);
+        // Usar dados simulados em caso de erro
+        const reservasSimuladas = [
+            {
+                id: 1,
+                data: '2025-05-28',
+                hora: '19:30',
+                num_pessoas: 4,
+                status: 'Reservado'
+            },
+            {
+                id: 2,
+                data: '2025-05-30',
+                hora: '20:00',
+                num_pessoas: 2,
+                status: 'Reservado'
+            }
+        ];
+        displayReservations(reservasSimuladas);
+    });
+}
+
+function displayReservations(reservas) {
     const reservasLista = document.getElementById('reservas-lista');
     reservasLista.innerHTML = '';
     
-    reservas.forEach((reserva, index) => {
-        const podeModificar = canModifyReservation(reserva.data, reserva.horario);
-        const tempoRestante = formatTimeRemaining(reserva.data, reserva.horario);
+    if (reservas.length === 0) {
+        reservasLista.innerHTML = '<p class="sem-reservas">Você não possui reservas no momento.</p>';
+        return;
+    }
+
+    reservas.forEach((reserva) => {
+        const dataFormatada = formatarData(reserva.data);
+        const podeModificar = canModifyReservation(reserva.data, reserva.hora);
+        const tempoRestante = formatTimeRemaining(reserva.data, reserva.hora);
         
         const reservaCard = document.createElement('div');
         reservaCard.className = 'reserva-card';
@@ -130,20 +238,20 @@ function loadReservations(filtro = 'proximas') {
         
         reservaCard.innerHTML = `
             <div class="reserva-info">
-                <p><strong>Data:</strong> ${reserva.data}</p>
-                <p><strong>Horário:</strong> ${reserva.horario}</p>
-                <p><strong>Pessoas:</strong> ${reserva.pessoas}</p>
+                <p><strong>Data:</strong> ${dataFormatada}</p>
+                <p><strong>Horário:</strong> ${reserva.hora}</p>
+                <p><strong>Pessoas:</strong> ${reserva.num_pessoas}</p>
                 <p><strong>Status:</strong> ${reserva.status}</p>
                 ${statusMessage}
             </div>
             <div class="reserva-acoes">
                 <button class="editar-reserva ${statusClass}" 
-                        onclick="editarReserva(${index})" 
+                        onclick="editarReserva(${reserva.id})" 
                         ${!podeModificar ? 'disabled title="Não é possível editar com menos de 2h de antecedência"' : ''}>
                     Editar
                 </button>
                 <button class="cancelar-reserva ${statusClass}" 
-                        onclick="cancelarReserva(${index})" 
+                        onclick="cancelarReserva(${reserva.id})" 
                         ${!podeModificar ? 'disabled title="Não é possível cancelar com menos de 2h de antecedência"' : ''}>
                     Cancelar
                 </button>
@@ -153,72 +261,134 @@ function loadReservations(filtro = 'proximas') {
     });
 }
 
-function editarReserva(index) {
-    const reservas = [
-        { data: '28/05/2025', horario: '19:30', pessoas: 4, status: 'Confirmada' },
-        { data: '30/05/2025', horario: '20:00', pessoas: 2, status: 'Pendente' },
-        { data: '02/06/2025', horario: '18:30', pessoas: 6, status: 'Confirmada' }
-    ];
-    
-    const reserva = reservas[index];
-    
-    if (!canModifyReservation(reserva.data, reserva.horario)) {
-        alert('Não é possível editar a reserva com menos de 2 horas de antecedência.');
-        return;
-    }
-    
-    // Redirecionar para página de reserva com parâmetros de edição
-    const params = new URLSearchParams({
-        edit: 'true',
-        id: index,
-        data: reserva.data,
-        horario: reserva.horario,
-        pessoas: reserva.pessoas
+function editarReserva(reservaId) {
+    // Buscar dados da reserva específica
+    fetch(`BackEnd/api/reservas.php?id=${reservaId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso && data.reserva) {
+            const reserva = data.reserva;
+            
+            if (!canModifyReservation(reserva.data, reserva.hora)) {
+                alert('Não é possível editar a reserva com menos de 2 horas de antecedência.');
+                return;
+            }
+            
+            // Redirecionar para página de reserva com parâmetros de edição
+            const params = new URLSearchParams({
+                edit: 'true',
+                id: reserva.id,
+                data: reserva.data,
+                horario: reserva.hora,
+                pessoas: reserva.num_pessoas
+            });
+            
+            window.location.href = `Reserva.html?${params.toString()}`;
+        } else {
+            alert('Erro ao carregar dados da reserva.');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro de conexão. Tente novamente.');
     });
-    
-    window.location.href = `Reserva.html?${params.toString()}`;
 }
 
-function cancelarReserva(index) {
-    const reservas = [
-        { data: '28/05/2025', horario: '19:30', pessoas: 4, status: 'Confirmada' },
-        { data: '30/05/2025', horario: '20:00', pessoas: 2, status: 'Pendente' },
-        { data: '02/06/2025', horario: '18:30', pessoas: 6, status: 'Confirmada' }
-    ];
-    
-    const reserva = reservas[index];
-    
-    if (!canModifyReservation(reserva.data, reserva.horario)) {
-        alert('Não é possível cancelar a reserva com menos de 2 horas de antecedência.');
-        return;
-    }
-    
-    if (confirm('Tem certeza que deseja cancelar esta reserva?')) {
-        alert('Reserva cancelada com sucesso!');
-        loadReservations(); // Recarregar a lista
-    }
+function cancelarReserva(reservaId) {
+    // Primeiro, verificar se pode cancelar
+    fetch(`BackEnd/api/reservas.php?id=${reservaId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso && data.reserva) {
+            const reserva = data.reserva;
+            
+            if (!canModifyReservation(reserva.data, reserva.hora)) {
+                alert('Não é possível cancelar a reserva com menos de 2 horas de antecedência.');
+                return;
+            }
+            
+            if (confirm('Tem certeza que deseja cancelar esta reserva?')) {
+                // Proceder com o cancelamento
+                fetch('BackEnd/api/reservas.php', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ id: reservaId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.sucesso) {
+                        alert('Reserva cancelada com sucesso!');
+                        loadReservations(); // Recarregar a lista
+                    } else {
+                        alert('Erro ao cancelar reserva: ' + (data.erro || 'Erro desconhecido'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro de conexão. Tente novamente.');
+                });
+            }
+        } else {
+            alert('Erro ao carregar dados da reserva.');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro de conexão. Tente novamente.');
+    });
 }
+
 function navigateTo(page) {
+    if (page === 'Login.html') {
+        // Se for para login, fazer logout
+        localStorage.removeItem('clienteLogado');
+    }
     window.location.href = page;
 }
 
-
-
 function canModifyReservation(reservaData, reservaHorario) {
     const agora = new Date();
-    const dataReserva = new Date(reservaData.split('/').reverse().join('-') + 'T' + reservaHorario);
-    const diferencaHoras = (dataReserva - agora) / (1000 * 60 * 60); // Diferença em horas
+    
+    // Se a data está no formato YYYY-MM-DD, converter para o formato esperado
+    let dataParaComparacao;
+    if (reservaData.includes('-')) {
+        dataParaComparacao = new Date(reservaData + 'T' + reservaHorario);
+    } else {
+        // Se está no formato DD/MM/YYYY
+        dataParaComparacao = new Date(reservaData.split('/').reverse().join('-') + 'T' + reservaHorario);
+    }
+    
+    const diferencaHoras = (dataParaComparacao - agora) / (1000 * 60 * 60); // Diferença em horas
     
     return diferencaHoras >= 2; // Permite modificação apenas se faltam 2+ horas
 }
 
 function formatTimeRemaining(reservaData, reservaHorario) {
     const agora = new Date();
-    const dataReserva = new Date(reservaData.split('/').reverse().join('-') + 'T' + reservaHorario);
-    const diferencaHoras = (dataReserva - agora) / (1000 * 60 * 60);
+    
+    let dataParaComparacao;
+    if (reservaData.includes('-')) {
+        dataParaComparacao = new Date(reservaData + 'T' + reservaHorario);
+    } else {
+        dataParaComparacao = new Date(reservaData.split('/').reverse().join('-') + 'T' + reservaHorario);
+    }
+    
+    const diferencaHoras = (dataParaComparacao - agora) / (1000 * 60 * 60);
     
     if (diferencaHoras < 2) {
-        const minutosRestantes = Math.floor((dataReserva - agora) / (1000 * 60));
+        const minutosRestantes = Math.floor((dataParaComparacao - agora) / (1000 * 60));
         if (minutosRestantes > 0) {
             return `Faltam ${minutosRestantes} minutos`;
         } else {
@@ -228,6 +398,14 @@ function formatTimeRemaining(reservaData, reservaHorario) {
     return '';
 }
 
+function formatarData(data) {
+    // Se a data está no formato YYYY-MM-DD, converter para DD/MM/YYYY
+    if (data.includes('-')) {
+        const partes = data.split('-');
+        return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+    return data; // Se já está no formato correto
+}
 
 // Event listeners
 document.getElementById('salvar-btn').addEventListener('click', saveChanges);

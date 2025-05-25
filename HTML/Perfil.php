@@ -1,0 +1,145 @@
+<?php
+session_start();
+require_once 'BackEnd/verificar_sessao.php';
+
+if (!verificarLogin()) {
+    header("Location: Login.html");
+    exit;
+}
+
+$cliente = obterClienteLogado();
+?>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Perfil - Lar da Dona Xinga</title>
+    <link rel="stylesheet" href="Css/Universal/nav.css">
+    <link rel="stylesheet" href="Css/Universal/footer.css">
+    <link rel="stylesheet" href="Css/Perfil/perfil.css">
+</head>
+<body>
+    <!-- Navegação -->
+    <nav>
+        <div class="Logotipo">
+            <img src="Fotos/Icondesite.png" alt="Logotipo do Site">
+        </div>
+        <div class="navbar">
+            <button onclick="navigateTo('Reserva.html')">Suas Reservas</button>
+            <button onclick="navigateTo('PaginaIncial.html')">Inicio</button>
+            <button onclick="navigateTo('Login.html')">Sair</button>
+        </div>
+    </nav>
+
+    <main>
+        <div class="perfil-container">
+            <!-- Seção do Perfil -->
+            <section class="perfil-section">
+                <div class="perfil-header">
+                    <div class="perfil-foto">
+                        <img src="Fotos/default-avatar.png" alt="Foto do Perfil" id="foto-perfil">
+                        <button class="trocar-foto-btn">Trocar foto do perfil</button>
+                    </div>
+                    
+                    <div class="perfil-info">
+                        <div class="form-group">
+                            <label for="nome-usuario">Nome do usuário</label>
+                            <input type="text" id="nome-usuario" name="nome-usuario" readonly>
+                            <button class="edit-btn" onclick="toggleEdit('nome-usuario')">...</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" name="email" readonly>
+                            <button class="edit-btn" onclick="toggleEdit('email')">...</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="telefone">Número de telefone</label>
+                            <input type="tel" id="telefone" name="telefone" readonly>
+                            <button class="edit-btn" onclick="toggleEdit('telefone')">...</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="botoes-acao">
+                    <button class="salvar-btn" id="salvar-btn" style="display: none;">Salvar Alterações</button>
+                    <button class="cancelar-btn" id="cancelar-btn" style="display: none;">Cancelar</button>
+                </div>
+            </section>
+
+            <!-- Seção do Histórico de Reservas -->
+            <section class="historico-section">
+                <h3>Como as reservas ficarão organizadas (As 3 próximas desta coluna)</h3>
+                
+                <div class="historico-header">
+                    <button class="historico-btn active" onclick="filterReservas('proximas')">Próximas de próximas</button>
+                    <button class="historico-btn" onclick="filterReservas('hoje')">Hoje</button>
+                    <button class="historico-btn" onclick="filterReservas('diferentes')">Diferentes Status</button>
+                </div>
+
+                <div class="reservas-lista" id="reservas-lista">
+                    <!-- As reservas serão carregadas aqui dinamicamente -->
+                    <div class="reserva-card">
+                        <div class="reserva-info">
+                            <p><strong>Data:</strong> 28/05/2025</p>
+                            <p><strong>Horário:</strong> 19:30</p>
+                            <p><strong>Pessoas:</strong> 4</p>
+                            <p><strong>Status:</strong> Confirmada</p>
+                        </div>
+                        <div class="reserva-acoes">
+                            <button class="cancelar-reserva">Cancelar</button>
+                            <button class="editar-reserva">Editar</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="footer-section">
+        <div class="footer-container">
+            <div class="footer-logo">
+                <img src="Fotos/Icondesite.png" alt="Logo do Restaurante">
+                <p>Lar Da Dona Xinga</p>
+            </div>
+            
+            <div class="footer-help">
+                <h3>Precisa de ajuda com sua reserva?</h3>
+                <p>Entre em contato conosco: <a href="mailto:Tomaszinho19@gmail.com">contato@restaurante.com</a></p>
+                <p>Telefone: (+244) 942-761-755</p>
+            </div>
+            <div class="footer-links">
+                <h3>Dúvidas Frequentes</h3>
+                <ul>
+                    <li><a href="faq.html">Perguntas Frequentes</a></li>
+                    <li><a href="termos.html">Termos de Uso e Política de Privacidade</a></li>
+                    <li><a href="contato.html">Fale Conosco</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Lar Da Dona Xinga. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script>
+        <?php
+session_start();
+require_once 'BackEnd/verificar_sessao.php';
+
+if (!verificarLogin()) {
+    header("Location: Login.html");
+    exit;
+}
+
+$cliente = obterClienteLogado();
+?>
+    </script>
+
+    <script src="Js/PaginaPerfil/perfil.js"></script>
+</body>
+</html>
