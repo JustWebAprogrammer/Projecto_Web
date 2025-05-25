@@ -118,40 +118,116 @@ function loadReservations(filtro = 'proximas') {
     const reservasLista = document.getElementById('reservas-lista');
     reservasLista.innerHTML = '';
     
-    reservas.forEach(reserva => {
+    reservas.forEach((reserva, index) => {
+        const podeModificar = canModifyReservation(reserva.data, reserva.horario);
+        const tempoRestante = formatTimeRemaining(reserva.data, reserva.horario);
+        
         const reservaCard = document.createElement('div');
         reservaCard.className = 'reserva-card';
+        
+        const statusClass = podeModificar ? '' : 'disabled';
+        const statusMessage = podeModificar ? '' : `<p class="tempo-limite">${tempoRestante || 'Não é mais possível editar/cancelar'}</p>`;
+        
         reservaCard.innerHTML = `
             <div class="reserva-info">
                 <p><strong>Data:</strong> ${reserva.data}</p>
                 <p><strong>Horário:</strong> ${reserva.horario}</p>
                 <p><strong>Pessoas:</strong> ${reserva.pessoas}</p>
                 <p><strong>Status:</strong> ${reserva.status}</p>
+                ${statusMessage}
             </div>
             <div class="reserva-acoes">
-                <button class="editar-reserva" onclick="editarReserva()">Editar</button>
-                <button class="cancelar-reserva" onclick="cancelarReserva()">Cancelar</button>
+                <button class="editar-reserva ${statusClass}" 
+                        onclick="editarReserva(${index})" 
+                        ${!podeModificar ? 'disabled title="Não é possível editar com menos de 2h de antecedência"' : ''}>
+                    Editar
+                </button>
+                <button class="cancelar-reserva ${statusClass}" 
+                        onclick="cancelarReserva(${index})" 
+                        ${!podeModificar ? 'disabled title="Não é possível cancelar com menos de 2h de antecedência"' : ''}>
+                    Cancelar
+                </button>
             </div>
         `;
         reservasLista.appendChild(reservaCard);
     });
 }
 
-function editarReserva() {
-    alert('Redirecionando para edição de reserva...');
-    // Aqui você redirecionaria para a página de edição
+function editarReserva(index) {
+    const reservas = [
+        { data: '28/05/2025', horario: '19:30', pessoas: 4, status: 'Confirmada' },
+        { data: '30/05/2025', horario: '20:00', pessoas: 2, status: 'Pendente' },
+        { data: '02/06/2025', horario: '18:30', pessoas: 6, status: 'Confirmada' }
+    ];
+    
+    const reserva = reservas[index];
+    
+    if (!canModifyReservation(reserva.data, reserva.horario)) {
+        alert('Não é possível editar a reserva com menos de 2 horas de antecedência.');
+        return;
+    }
+    
+    // Redirecionar para página de reserva com parâmetros de edição
+    const params = new URLSearchParams({
+        edit: 'true',
+        id: index,
+        data: reserva.data,
+        horario: reserva.horario,
+        pessoas: reserva.pessoas
+    });
+    
+    window.location.href = `Reserva.html?${params.toString()}`;
 }
 
-function cancelarReserva() {
+function cancelarReserva(index) {
+    const reservas = [
+        { data: '28/05/2025', horario: '19:30', pessoas: 4, status: 'Confirmada' },
+        { data: '30/05/2025', horario: '20:00', pessoas: 2, status: 'Pendente' },
+        { data: '02/06/2025', horario: '18:30', pessoas: 6, status: 'Confirmada' }
+    ];
+    
+    const reserva = reservas[index];
+    
+    if (!canModifyReservation(reserva.data, reserva.horario)) {
+        alert('Não é possível cancelar a reserva com menos de 2 horas de antecedência.');
+        return;
+    }
+    
     if (confirm('Tem certeza que deseja cancelar esta reserva?')) {
         alert('Reserva cancelada com sucesso!');
-        // Aqui você faria a chamada para o backend
+        loadReservations(); // Recarregar a lista
     }
 }
-
 function navigateTo(page) {
     window.location.href = page;
 }
+
+
+
+function canModifyReservation(reservaData, reservaHorario) {
+    const agora = new Date();
+    const dataReserva = new Date(reservaData.split('/').reverse().join('-') + 'T' + reservaHorario);
+    const diferencaHoras = (dataReserva - agora) / (1000 * 60 * 60); // Diferença em horas
+    
+    return diferencaHoras >= 2; // Permite modificação apenas se faltam 2+ horas
+}
+
+function formatTimeRemaining(reservaData, reservaHorario) {
+    const agora = new Date();
+    const dataReserva = new Date(reservaData.split('/').reverse().join('-') + 'T' + reservaHorario);
+    const diferencaHoras = (dataReserva - agora) / (1000 * 60 * 60);
+    
+    if (diferencaHoras < 2) {
+        const minutosRestantes = Math.floor((dataReserva - agora) / (1000 * 60));
+        if (minutosRestantes > 0) {
+            return `Faltam ${minutosRestantes} minutos`;
+        } else {
+            return 'Reserva expirada';
+        }
+    }
+    return '';
+}
+
 
 // Event listeners
 document.getElementById('salvar-btn').addEventListener('click', saveChanges);

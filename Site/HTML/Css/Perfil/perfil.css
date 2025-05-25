@@ -285,3 +285,21 @@ body {
         padding: 10px;
     }
 }
+
+.reserva-acoes button.disabled {
+    background-color: #999 !important;
+    color: #666 !important;
+    cursor: not-allowed !important;
+    opacity: 0.5;
+}
+
+.reserva-acoes button.disabled:hover {
+    background-color: #999 !important;
+}
+
+.tempo-limite {
+    color: #ff6b6b !important;
+    font-size: 12px !important;
+    font-style: italic;
+    margin-top: 5px !important;
+}
