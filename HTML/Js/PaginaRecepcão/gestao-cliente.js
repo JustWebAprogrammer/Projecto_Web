@@ -23,6 +23,41 @@ let clienteSelecionado = null;
 let mesasSelecionadas = [];
 let numPessoasAtual = 0;
 
+
+function limitarNumeroInput(input, maxValue = 60) {
+    input.addEventListener('input', function(e) {
+        let value = parseInt(e.target.value);
+        
+        if (value > maxValue) {
+            e.target.value = maxValue;
+        }
+        
+        if (value < 1 && e.target.value !== '') {
+            e.target.value = 1;
+        }
+    });
+    
+    input.addEventListener('keydown', function(e) {
+        const currentValue = e.target.value;
+        const key = e.key;
+        
+        if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab'].includes(key)) {
+            return;
+        }
+        
+        if (!/\d/.test(key)) {
+            e.preventDefault();
+            return;
+        }
+        
+        const newValue = currentValue + key;
+        if (parseInt(newValue) > maxValue) {
+            e.preventDefault();
+        }
+    });
+}
+
+
 // Função para calcular número de mesas necessárias
 function calcularMesasNecessarias(numPessoas) {
     if (numPessoas <= 4) {
@@ -334,8 +369,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Monitorar mudanças no campo de número de pessoas
     const numPessoasInput = document.getElementById('num-pessoas-walkin');
-    numPessoasInput.addEventListener('input', atualizarCalculoMesas);
-    numPessoasInput.addEventListener('change', atualizarCalculoMesas);
+    if (numPessoasInput) {
+        limitarNumeroInput(numPessoasInput, 60);
+        numPessoasInput.addEventListener('input', atualizarCalculoMesas);
+        numPessoasInput.addEventListener('change', atualizarCalculoMesas);
+    }
 });
 
 // Resto das funções permanecem iguais...

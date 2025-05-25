@@ -24,6 +24,7 @@
 
 <!-- Conteúdo Principal -->
 <main>
+    
     <!-- Imagem de Fundo -->
     <div class="FundoPrincipal">
         <img src="Fotos/FrontImg.png" alt="Imagem de Fundo">
@@ -42,16 +43,22 @@
         <div class="NivelEnferiorDir">
             <h2>Faça sua reserva</h2>
             <p>Encontre a sua reserva ideal</p>
-            <form id="reservation-form" onsubmit="return validateForm(event)">
-                <label for="reservation-date">Data Desejada</label>
-                <input type="date" id="reservation-date" name="reservation_date" required>
-        
-                <label for="num-people">Número de pessoas</label>
-                <input type="number" id="num-people" name="num_people" min="1" required>
-        
-                <label for="reservation-time">Melhor Horário</label>
-                <input type="time" id="reservation-time" name="reservation_time" required>
-        
+            <form id="reserva-form" onsubmit="return validateForm(event)">
+                <div class="form-group">
+                    <label for="reservation-date">Data Desejada</label>
+                    <input type="date" id="reservation-date" name="reservation_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="num-people">Número de pessoas</label>
+                    <input type="number" id="num-people" name="num_people" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reservation-time">Melhor Horário</label>
+                    <input type="time" id="reservation-time" name="reservation_time" required>
+                </div>
+                
                 <button type="submit">Encontrar reservas</button>
             </form>
             <div id="error-message" class="error-message"></div>

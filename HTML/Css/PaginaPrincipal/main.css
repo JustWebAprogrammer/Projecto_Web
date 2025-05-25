@@ -91,12 +91,17 @@ body {
 
 .NivelEnferiorDir {
     color: #9b9b78;
-    background-color: #2B341D;
-    width: 600px;
-    height: 500px;
-    padding: 20px;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        background-color: #2B341D;
+        width: 600px;
+        min-height: 500px;
+        /* Mudar de height para min-height */
+        max-height: none;
+        /* Permitir expansão */
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        overflow-y: auto;
+        /* Adicionar scroll se necessário */
 }
 
 .NivelEnferiorDir h2 {
@@ -110,6 +115,12 @@ body {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    height: auto;
+}
+
+.NivelEnferiorDir .info-mesas-necessarias {
+    margin: 15px 0;
+    /* As outras propriedades já estão definidas no CSS que adicionamos */
 }
 
 .NivelEnferiorDir label {
@@ -161,6 +172,7 @@ body {
         width: 100%;
         max-width: 600px;
         margin-bottom: 20px;
+        min-height: auto;
     }
 
     .FundoPrincipal {
@@ -170,9 +182,123 @@ body {
     }
 }
 
+
+
 @media (min-width: 769px) and (max-width: 1280px) {
     .FundoPrincipal {
         min-height: 300px;
         /* Ajuste para telas médias */
     }
 }
+
+/* Adicione ao final do main.css */
+
+.info-mesas-necessarias {
+    background-color: #1a2015;
+    border: 2px solid #a3b76d;
+    border-radius: 8px;
+    margin: 15px 0;
+    padding: 15px;
+    color: #f7f7ce;
+}
+
+.calculo-mesas-cliente h4 {
+    color: #a3b76d;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 18px;
+}
+
+.mesas-info p {
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.aviso-uniao-cliente {
+    background-color: #3a4a28;
+    border-left: 4px solid #a3b76d;
+    padding: 12px;
+    margin: 15px 0;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.distribuicao-visual {
+    margin-top: 15px;
+}
+
+.mesas-distribuicao {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.mesa-visual {
+    text-align: center;
+    background-color: #2a3d1e;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #a3b76d;
+    min-width: 80px;
+}
+
+.mesa-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.mesa-visual span {
+    font-size: 12px;
+    color: #ccc;
+    display: block;
+}
+
+.mesa-visual strong {
+    color: #a3b76d;
+    font-size: 14px;
+
+
+}
+
+
+
+.NivelEnferiorDir .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 15px;
+}
+
+.NivelEnferiorDir .form-group label {
+    margin-bottom: 5px;
+}
+
+.NivelEnferiorDir .form-group input {
+    margin-bottom: 0;
+}
+
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+    .mesas-distribuicao {
+        gap: 10px;
+    }
+
+    .mesa-visual {
+        min-width: 60px;
+        padding: 10px;
+    }
+
+    .mesa-icon {
+        font-size: 20px;
+    }
+
+    .aviso-uniao-cliente {
+        font-size: 13px;
+        padding: 10px;
+    }
+}
+

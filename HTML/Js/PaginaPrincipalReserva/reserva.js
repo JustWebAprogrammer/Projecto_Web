@@ -1,14 +1,56 @@
+// Função para limitar input a máximo de pessoas
+function limitarNumeroInput(input, maxValue = 60) {
+    input.addEventListener('input', function(e) {
+        let value = parseInt(e.target.value);
+        
+        // Se o valor for maior que o máximo permitido
+        if (value > maxValue) {
+            e.target.value = maxValue;
+        }
+        
+        // Se o valor for menor que 1
+        if (value < 1 && e.target.value !== '') {
+            e.target.value = 1;
+        }
+    });
+    
+    // Impedir digitação de caracteres que resultariam em números > maxValue
+    input.addEventListener('keydown', function(e) {
+        const currentValue = e.target.value;
+        const key = e.key;
+        
+        // Permitir teclas de controle (backspace, delete, arrows, etc.)
+        if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab'].includes(key)) {
+            return;
+        }
+        
+        // Permitir apenas números
+        if (!/\d/.test(key)) {
+            e.preventDefault();
+            return;
+        }
+        
+        // Verificar se o novo valor seria maior que maxValue
+        const newValue = currentValue + key;
+        if (parseInt(newValue) > maxValue) {
+            e.preventDefault();
+        }
+    });
+}
+
 function validateForm(event) {
     event.preventDefault(); // Impede o envio até a validação
 
     // Limpar mensagem de erro anterior
     const errorMessage = document.getElementById('error-message');
     errorMessage.textContent = '';
+    errorMessage.style.color = '#ff4d4d'; // Reset cor
 
     // Obter valores dos campos
     const dateInput = document.getElementById('reservation-date').value;
     const numPeopleInput = document.getElementById('num-people').value;
     const timeInput = document.getElementById('reservation-time').value;
+    const isEdit = document.getElementById('reserva-form').dataset.editId;
 
     // Validar Data Desejada
     const selectedDate = new Date(dateInput);
@@ -20,13 +62,13 @@ function validateForm(event) {
     maxDate.setHours(0, 0, 0, 0); // Zera também pra manter a comparação justa
 
     if (selectedDate < today) {
-    errorMessage.textContent = 'A data tem que ser hoje ou no futuro. A menos que você tenha uma máquina do tempo.';
-    return false;
+        errorMessage.textContent = 'A data tem que ser hoje ou no futuro. A menos que você tenha uma máquina do tempo.';
+        return false;
     }
 
     if (selectedDate > maxDate) {
-    errorMessage.textContent = 'Você só pode marcar até 7 dias no futuro. Mais que isso, nem o Supremo Senhor Kaio sabe o que vai acontecer.';
-    return false;
+        errorMessage.textContent = 'Você só pode marcar até 7 dias no futuro. Mais que isso, nem o Supremo Senhor Kaio sabe o que vai acontecer.';
+        return false;
     }
     
     // Validar Número de Pessoas
@@ -44,7 +86,6 @@ function validateForm(event) {
         return false;
     }
 
-
     // Validar Melhor Horário
     const [hours, minutes] = timeInput.split(':').map(Number);
     if (hours < 9 || hours > 22) {
@@ -52,9 +93,43 @@ function validateForm(event) {
         return false;
     }
 
-    // Se todas as validações passarem, exibir sucesso (pode ser substituído por envio ao servidor depois)
-    errorMessage.textContent = 'Formulário válido! Pronto para prosseguir.';
-    errorMessage.style.color = 'green';
+    // Validação especial para edição: verificar se ainda é possível editar
+    if (isEdit) {
+        const reservaDateTime = new Date(dateInput + 'T' + timeInput);
+        const agora = new Date();
+        const diferencaHoras = (reservaDateTime - agora) / (1000 * 60 * 60);
+        
+        if (diferencaHoras < 2) {
+            errorMessage.textContent = 'Não é possível editar a reserva com menos de 2 horas de antecedência.';
+            return false;
+        }
+    }
+
+    // Mostrar confirmação especial para grupos grandes
+    const mesasNecessarias = calcularMesasNecessarias(numPeople);
+    if (mesasNecessarias > 1) {
+        const confirmar = confirm(
+            `Sua reserva requer ${mesasNecessarias} mesas para ${numPeople} pessoas.\n\n` +
+            `As mesas serão unidas no restaurante conforme disponibilidade do espaço.\n\n` +
+            `Confirma a reserva?`
+        );
+        
+        if (!confirmar) {
+            return false;
+        }
+    }
+
+    // Sucesso
+    const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
+    alert(mensagem);
+    
+    // Redirecionar
+    if (document.querySelector('nav button[aria-label*="reservas"]')) {
+        window.location.href = 'Perfil.html';
+    } else {
+        window.location.href = 'PaginaIncial.html';
+    }
+    
     return true;
 }
 
@@ -76,15 +151,7 @@ function setDateLimits() {
      timeInput.max = "22:00";
 }
 
-// Call this when the page loads
-document.addEventListener('DOMContentLoaded', setDateLimits);
-
 // Verificar se estamos em modo de edição
-document.addEventListener('DOMContentLoaded', function() {
-    setDateLimits();
-    checkEditMode();
-});
-
 function checkEditMode() {
     const urlParams = new URLSearchParams(window.location.search);
     const isEdit = urlParams.get('edit') === 'true';
@@ -118,72 +185,6 @@ function checkEditMode() {
         // Armazenar ID da reserva para uso posterior
         document.getElementById('reserva-form').dataset.editId = reservaId;
     }
-}
-
-// Modificar a função validateForm para lidar com edição
-function validateForm(event) {
-    event.preventDefault();
-
-    const errorMessage = document.getElementById('error-message');
-    errorMessage.textContent = '';
-
-    const dateInput = document.getElementById('reservation-date').value;
-    const numPeopleInput = document.getElementById('num-people').value;
-    const timeInput = document.getElementById('reservation-time').value;
-    const isEdit = document.getElementById('reserva-form').dataset.editId;
-
-    // Validações existentes...
-    const selectedDate = new Date(dateInput);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const maxDate = new Date();
-    maxDate.setDate(today.getDate() + 7);
-    maxDate.setHours(0, 0, 0, 0);
-
-    // Validação especial para edição: verificar se ainda é possível editar
-    if (isEdit) {
-        const reservaDateTime = new Date(dateInput + 'T' + timeInput);
-        const agora = new Date();
-        const diferencaHoras = (reservaDateTime - agora) / (1000 * 60 * 60);
-        
-        if (diferencaHoras < 2) {
-            errorMessage.textContent = 'Não é possível editar a reserva com menos de 2 horas de antecedência.';
-            return false;
-        }
-    }
-
-    // Suas validações existentes aqui...
-    if (selectedDate < today) {
-        errorMessage.textContent = 'A data tem que ser hoje ou no futuro.';
-        return false;
-    }
-
-    if (selectedDate > maxDate) {
-        errorMessage.textContent = 'Você só pode marcar até 7 dias no futuro.';
-        return false;
-    }
-
-    const numPeople = parseInt(numPeopleInput);
-    if (isNaN(numPeople) || numPeople <= 0 || numPeople > 60) {
-        errorMessage.textContent = 'Número de pessoas deve estar entre 1 e 60.';
-        return false;
-    }
-
-    const [hours, minutes] = timeInput.split(':').map(Number);
-    if (hours < 9 || hours > 22) {
-        errorMessage.textContent = 'O horário deve estar entre 09:00 e 22:00.';
-        return false;
-    }
-
-    // Sucesso
-    const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
-    alert(mensagem);
-    
-    // Redirecionar de volta ao perfil
-    window.location.href = 'Perfil.html';
-    
-    return true;
 }
 
 function calcularMesasNecessarias(numPessoas) {
@@ -263,102 +264,17 @@ function mostrarInfoMesas(numPessoas) {
     numPeopleGroup.insertAdjacentElement('afterend', infoDiv);
 }
 
-// Atualizar a função validateForm para incluir a nova lógica
-function validateForm(event) {
-    event.preventDefault();
-
-    const errorMessage = document.getElementById('error-message');
-    errorMessage.textContent = '';
-    errorMessage.style.color = '#ff4d4d'; // Reset cor
-
-    const dateInput = document.getElementById('reservation-date').value;
-    const numPeopleInput = document.getElementById('num-people').value;
-    const timeInput = document.getElementById('reservation-time').value;
-    const isEdit = document.getElementById('reserva-form').dataset.editId;
-
-    // Validações existentes...
-    const selectedDate = new Date(dateInput);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const maxDate = new Date();
-    maxDate.setDate(today.getDate() + 7);
-    maxDate.setHours(0, 0, 0, 0);
-
-    if (selectedDate < today) {
-        errorMessage.textContent = 'A data tem que ser hoje ou no futuro.';
-        return false;
-    }
-
-    if (selectedDate > maxDate) {
-        errorMessage.textContent = 'Você só pode marcar até 7 dias no futuro.';
-        return false;
-    }
-
-    const numPeople = parseInt(numPeopleInput);
-    if (isNaN(numPeople) || numPeople <= 0) {
-        errorMessage.textContent = 'O número de pessoas deve ser maior que 0.';
-        return false;
-    }
-    if (numPeople > 60) {
-        errorMessage.textContent = 'O número de pessoas deve ser menor que 60.';
-        return false;
-    }
-
-    const [hours, minutes] = timeInput.split(':').map(Number);
-    if (hours < 9 || hours > 22) {
-        errorMessage.textContent = 'O horário deve estar entre 09:00 e 22:00.';
-        return false;
-    }
-
-    // Validação especial para edição
-    if (isEdit) {
-        const reservaDateTime = new Date(dateInput + 'T' + timeInput);
-        const agora = new Date();
-        const diferencaHoras = (reservaDateTime - agora) / (1000 * 60 * 60);
-        
-        if (diferencaHoras < 2) {
-            errorMessage.textContent = 'Não é possível editar a reserva com menos de 2 horas de antecedência.';
-            return false;
-        }
-    }
-
-    // Mostrar confirmação especial para grupos grandes
-    const mesasNecessarias = calcularMesasNecessarias(numPeople);
-    if (mesasNecessarias > 1) {
-        const confirmar = confirm(
-            `Sua reserva requer ${mesasNecessarias} mesas para ${numPeople} pessoas.\n\n` +
-            `As mesas serão unidas no restaurante conforme disponibilidade do espaço.\n\n` +
-            `Confirma a reserva?`
-        );
-        
-        if (!confirmar) {
-            return false;
-        }
-    }
-
-    // Sucesso
-    const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
-    alert(mensagem);
-    
-    // Redirecionar
-    if (document.querySelector('nav button[aria-label*="reservas"]')) {
-        window.location.href = 'Perfil.html';
-    } else {
-        window.location.href = 'PaginaIncial.html';
-    }
-    
-    return true;
-}
-
-// Adicionar event listener para o campo de número de pessoas
+// Event listeners principais
 document.addEventListener('DOMContentLoaded', function() {
     setDateLimits();
     checkEditMode();
     
-    // Monitorar mudanças no número de pessoas
+    // Aplicar limitação aos inputs de número de pessoas
     const numPeopleInput = document.getElementById('num-people');
     if (numPeopleInput) {
+        limitarNumeroInput(numPeopleInput, 60);
+        
+        // Monitorar mudanças no número de pessoas
         numPeopleInput.addEventListener('input', function() {
             const numPessoas = parseInt(this.value) || 0;
             mostrarInfoMesas(numPessoas);
