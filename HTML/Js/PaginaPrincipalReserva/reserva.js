@@ -93,6 +93,9 @@ function validateForm(event) {
         return false;
     }
 
+ 
+ 
+
     // Validação especial para edição: verificar se ainda é possível editar
     if (isEdit) {
         const reservaDateTime = new Date(dateInput + 'T' + timeInput);
@@ -104,6 +107,9 @@ function validateForm(event) {
             return false;
         }
     }
+
+
+
 
     // Mostrar confirmação especial para grupos grandes
     const mesasNecessarias = calcularMesasNecessarias(numPeople);
@@ -119,18 +125,24 @@ function validateForm(event) {
         }
     }
 
-    // Sucesso
-    const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
-    alert(mensagem);
-    
-    // Redirecionar
-    if (document.querySelector('nav button[aria-label*="reservas"]')) {
-        window.location.href = 'Perfil.html';
-    } else {
-        window.location.href = 'PaginaIncial.html';
+ // ADICIONE ESTAS LINHAS NO LUGAR:
+    // Preparar dados para envio
+    const dadosReserva = {
+        data: dateInput,
+        hora: timeInput,
+        num_pessoas: numPeople,
+        cliente_id: 1 // Temporário - implementar sistema de login depois
+    };
+
+    // Se é edição, adicionar ID da reserva
+    if (isEdit) {
+        dadosReserva.reserva_id = isEdit;
     }
+
+    // Enviar para o backend
+    enviarReserva(dadosReserva, isEdit);
     
-    return true;
+    return false; // Impedir envio tradicional do form
 }
 
 function setDateLimits() {
@@ -150,6 +162,7 @@ function setDateLimits() {
      timeInput.min = "09:00";
      timeInput.max = "22:00";
 }
+
 
 // Verificar se estamos em modo de edição
 function checkEditMode() {
@@ -264,6 +277,10 @@ function mostrarInfoMesas(numPessoas) {
     numPeopleGroup.insertAdjacentElement('afterend', infoDiv);
 }
 
+
+
+
+
 // Event listeners principais
 document.addEventListener('DOMContentLoaded', function() {
     setDateLimits();
@@ -286,3 +303,47 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+async function enviarReserva(dadosReserva, isEdit = false) {
+    const errorMessage = document.getElementById('error-message');
+    
+    try {
+        // Mostrar loading
+        errorMessage.textContent = 'Processando reserva...';
+        errorMessage.style.color = '#007bff';
+        
+        const endpoint = isEdit ? 'editar' : 'criar';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const response = await fetch(`../backend/api/reservas.php?action=${endpoint}`, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dadosReserva)
+        });
+
+        const resultado = await response.json();
+        
+        if (resultado.sucesso) {
+            // Sucesso - mostrar mensagem e redirecionar
+            const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
+            alert(mensagem);
+            
+            // Redirecionar
+            if (document.querySelector('nav button[aria-label*="reservas"]')) {
+                window.location.href = 'Perfil.html';
+            } else {
+                window.location.href = 'PaginaIncial.html';
+            }
+        } else {
+            // Erro do servidor
+            errorMessage.textContent = resultado.erro || 'Erro ao processar reserva';
+            errorMessage.style.color = '#ff4d4d';
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        errorMessage.textContent = 'Erro de conexão com o servidor. Tente novamente.';
+        errorMessage.style.color = '#ff4d4d';
+    }
+}
