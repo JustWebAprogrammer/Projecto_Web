@@ -43,7 +43,7 @@
         <div class="NivelEnferiorDir">
             <h2>Faça sua reserva</h2>
             <p>Encontre a sua reserva ideal</p>
-            <form id="reserva-form" onsubmit="return validateForm(event)">
+            <form id="reserva-form" action="BackEnd/api/reservas.php" method="POST" onsubmit="return validateForm(event)">
                 <div class="form-group">
                     <label for="reservation-date">Data Desejada</label>
                     <input type="date" id="reservation-date" name="reservation_date" required>

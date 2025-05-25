@@ -93,9 +93,6 @@ function validateForm(event) {
         return false;
     }
 
- 
- 
-
     // Validação especial para edição: verificar se ainda é possível editar
     if (isEdit) {
         const reservaDateTime = new Date(dateInput + 'T' + timeInput);
@@ -107,9 +104,6 @@ function validateForm(event) {
             return false;
         }
     }
-
-
-
 
     // Mostrar confirmação especial para grupos grandes
     const mesasNecessarias = calcularMesasNecessarias(numPeople);
@@ -125,22 +119,8 @@ function validateForm(event) {
         }
     }
 
- // ADICIONE ESTAS LINHAS NO LUGAR:
-    // Preparar dados para envio
-    const dadosReserva = {
-        data: dateInput,
-        hora: timeInput,
-        num_pessoas: numPeople,
-        cliente_id: 1 // Temporário - implementar sistema de login depois
-    };
-
-    // Se é edição, adicionar ID da reserva
-    if (isEdit) {
-        dadosReserva.reserva_id = isEdit;
-    }
-
-    // Enviar para o backend
-    enviarReserva(dadosReserva, isEdit);
+    // Enviar dados via formulário tradicional
+    enviarReservaFormulario(dateInput, timeInput, numPeople, isEdit);
     
     return false; // Impedir envio tradicional do form
 }
@@ -157,12 +137,11 @@ function setDateLimits() {
     maxDate.setDate(today.getDate() + 7);
     dateInput.max = maxDate.toISOString().split('T')[0];
 
-     // Add time limits
-     const timeInput = document.getElementById('reservation-time');
-     timeInput.min = "09:00";
-     timeInput.max = "22:00";
+    // Add time limits
+    const timeInput = document.getElementById('reservation-time');
+    timeInput.min = "09:00";
+    timeInput.max = "22:00";
 }
-
 
 // Verificar se estamos em modo de edição
 function checkEditMode() {
@@ -175,7 +154,9 @@ function checkEditMode() {
         const horario = urlParams.get('horario');
         const pessoas = urlParams.get('pessoas');
         const reservaId = urlParams.get('id');
+        
         document.getElementById('edit-notice').style.display = 'block';
+        
         // Converter data de DD/MM/YYYY para YYYY-MM-DD
         if (data) {
             const [dia, mes, ano] = data.split('/');
@@ -277,9 +258,102 @@ function mostrarInfoMesas(numPessoas) {
     numPeopleGroup.insertAdjacentElement('afterend', infoDiv);
 }
 
+// NOVA FUNÇÃO - Enviar via formulário tradicional em vez de JSON
+function enviarReservaFormulario(data, hora, numPessoas, isEdit = false) {
+    const errorMessage = document.getElementById('error-message');
+    
+    // Mostrar loading
+    errorMessage.textContent = 'Processando reserva...';
+    errorMessage.style.color = '#007bff';
+    
+    // Criar formulário dinamicamente
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'BackEnd/api/reservas.php';
+    
+    // Adicionar campos do formulário
+    const campos = [
+        { name: 'data', value: data },
+        { name: 'hora', value: hora },
+        { name: 'num_pessoas', value: numPessoas },
+        { name: 'cliente_id', value: 1 } // Temporário - implementar sistema de login depois
+    ];
+    
+    // Se é edição, adicionar método PUT e ID da reserva
+    if (isEdit) {
+        campos.push(
+            { name: '_method', value: 'PUT' },
+            { name: 'reserva_id', value: isEdit }
+        );
+    }
+    
+    // Criar inputs hidden
+    campos.forEach(campo => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = campo.name;
+        input.value = campo.value;
+        form.appendChild(input);
+    });
+    
+    // Adicionar formulário ao body e submeter
+    document.body.appendChild(form);
+    form.submit();
+}
 
-
-
+// NOVA FUNÇÃO - Alternativa usando fetch mas com FormData
+function enviarReservaFetch(data, hora, numPessoas, isEdit = false) {
+    const errorMessage = document.getElementById('error-message');
+    
+    // Mostrar loading
+    errorMessage.textContent = 'Processando reserva...';
+    errorMessage.style.color = '#007bff';
+    
+    // Criar FormData
+    const formData = new FormData();
+    formData.append('data', data);
+    formData.append('hora', hora);
+    formData.append('num_pessoas', numPessoas);
+    formData.append('cliente_id', 1); // Temporário
+    
+    if (isEdit) {
+        formData.append('_method', 'PUT');
+        formData.append('reserva_id', isEdit);
+    }
+    
+    // Enviar com fetch
+    fetch('../BackEnd/api/reservas.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.headers.get('content-type')?.includes('application/json')) {
+            return response.json();
+        } else {
+            // Se não for JSON, provavelmente houve redirecionamento
+            // Redirecionar para a página adequada
+            const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
+            alert(mensagem);
+            window.location.href = '../Perfil.php';
+            return;
+        }
+    })
+    .then(resultado => {
+        if (resultado && resultado.sucesso) {
+            const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
+            alert(mensagem);
+            window.location.href = '../Perfil.php';
+        } else if (resultado && resultado.erro) {
+            errorMessage.textContent = resultado.erro;
+            errorMessage.style.color = '#ff4d4d';
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        errorMessage.textContent = 'Erro de conexão com o servidor. Tente novamente.';
+        errorMessage.style.color = '#ff4d4d';
+    });
+}
 
 // Event listeners principais
 document.addEventListener('DOMContentLoaded', function() {
@@ -303,47 +377,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
-async function enviarReserva(dadosReserva, isEdit = false) {
-    const errorMessage = document.getElementById('error-message');
-    
-    try {
-        // Mostrar loading
-        errorMessage.textContent = 'Processando reserva...';
-        errorMessage.style.color = '#007bff';
-        
-        const endpoint = isEdit ? 'editar' : 'criar';
-        const method = isEdit ? 'PUT' : 'POST';
-        
-        const response = await fetch(`../backend/api/reservas.php?action=${endpoint}`, {
-            method: method,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(dadosReserva)
-        });
-
-        const resultado = await response.json();
-        
-        if (resultado.sucesso) {
-            // Sucesso - mostrar mensagem e redirecionar
-            const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
-            alert(mensagem);
-            
-            // Redirecionar
-            if (document.querySelector('nav button[aria-label*="reservas"]')) {
-                window.location.href = 'Perfil.html';
-            } else {
-                window.location.href = 'PaginaIncial.html';
-            }
-        } else {
-            // Erro do servidor
-            errorMessage.textContent = resultado.erro || 'Erro ao processar reserva';
-            errorMessage.style.color = '#ff4d4d';
-        }
-    } catch (error) {
-        console.error('Erro:', error);
-        errorMessage.textContent = 'Erro de conexão com o servidor. Tente novamente.';
-        errorMessage.style.color = '#ff4d4d';
-    }
-}
