@@ -9,6 +9,21 @@
     <link rel="stylesheet" href="Css/Reserva/reserva.css">
 </head>
 <body>
+     <!-- Verificar se está logado antes de mostrar conteúdo -->
+     <script>
+        // Verificar se está logado
+        fetch('BackEnd/verificar_status_sessao.php')
+            .then(response => response.json())
+            .then(data => {
+                if (!data.logado) {
+                    window.location.href = 'Login.html';
+                }
+            })
+            .catch(() => {
+                window.location.href = 'Login.html';
+            });
+        </script>
+
     <header>
         <nav>
             <div class="Logotipo">
@@ -75,5 +90,6 @@
     </footer>
 
     <script src="Js/PaginaPrincipalReserva/reserva.js"></script>
+    <script src="Js/Universal/nav-dinamico.js"></script>
 </body>
 </html>

@@ -1,5 +1,10 @@
 <?php
-session_start();
+
+// Verificar se a sessão já não está ativa antes de iniciar
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once 'BackEnd/verificar_sessao.php';
 
 // Verificar se o usuário está logado
@@ -28,7 +33,7 @@ $cliente = obterClienteLogado();
         <img src="Fotos/Icondesite.png" alt="Logotipo do Site">
     </div>
     <div class="navbar">
-        <button onclick="navigateTo('Reserva.html')">Fazer Reserva</button>
+    <button onclick="navigateTo('Reserva.html')">Fazer Reserva</button>
         <button onclick="navigateTo('PaginaIncial.html')">Início</button>
         <button onclick="navigateTo('BackEnd/api/logoff.php')">Sair</button>
     </div>
@@ -129,5 +134,11 @@ const clienteLogado = {
 };
 </script>
 <script src="Js/PaginaPerfil/perfil-session.js"></script>
+<script>
+function navigateTo(url) {
+    window.location.href = url;
+}
+</script>
+
 </body>
 </html>

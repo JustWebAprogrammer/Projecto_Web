@@ -16,9 +16,8 @@
         <img src="Fotos/Icondesite.png" alt="Logotipo do Site">
     </div>
     <div class="navbar">
-        <button>Sua Reservas</button>
-        <button>Inicio</button>
-        <button>Entrar</button>
+        <button onclick="navigateTo('PaginaIncial.html')">Início</button>
+        <button onclick="navigateTo('Registrar.html')">Registrar</button>
     </div>
 </nav>
 
@@ -74,6 +73,14 @@
     </div>
 </footer>
 
+
+
     <script src="Js/PaginaLogin/autetificado.js"></script>
+    <script>
+        function navigateTo(url) {
+            window.location.href = url;
+        }
+        </script>
+
 </body>
 </html>

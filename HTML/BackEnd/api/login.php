@@ -1,5 +1,10 @@
 <?php
-session_start();
+
+// Verificar se a sessão já não está ativa antes de iniciar
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../controllers/AuthController.php';
 

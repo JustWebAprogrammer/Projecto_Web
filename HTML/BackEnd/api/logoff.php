@@ -1,5 +1,8 @@
 <?php
-session_start();
+// Verificar se a sessão já não está ativa antes de iniciar
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Destruir todas as variáveis de sessão
 $_SESSION = array();
