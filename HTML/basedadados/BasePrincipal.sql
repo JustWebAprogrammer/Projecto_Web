@@ -19,6 +19,9 @@ CREATE TABLE mesas (
 );
 
 
+
+
+
 CREATE TABLE reservas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     cliente_id INT NOT NULL,
@@ -31,7 +34,7 @@ CREATE TABLE reservas (
     data_atualizacao DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (cliente_id) REFERENCES clientes(id),
     FOREIGN KEY (mesa_id) REFERENCES mesas(id),
-    CHECK (num_pessoas >= 1 AND num_pessoas <= 60)
+    CHECK (num_pessoas >= 0 AND num_pessoas <= 60)
 );
 
 
@@ -63,6 +66,8 @@ CREATE TABLE alertas_falhas (
     FOREIGN KEY (reserva_id) REFERENCES reservas(id)
 );
 
+ALTER TABLE reservas ADD COLUMN reserva_principal_id INT NULL;
+ALTER TABLE reservas ADD FOREIGN KEY (reserva_principal_id) REFERENCES reservas(id);
 
-Show Tables;
-Describe clientes;
+
+Select * From reservas;
