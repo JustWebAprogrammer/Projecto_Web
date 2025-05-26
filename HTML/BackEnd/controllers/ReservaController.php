@@ -80,6 +80,12 @@ class ReservaController {
     
     // Novo método para criar reservas auxiliares (só para bloquear mesas)
     private function criarReservaAuxiliar($dados, $mesa_id, $reserva_principal_id) {
+        
+        if (!isset($dados['cliente_id']) || empty($dados['cliente_id'])) {
+            error_log(message: "ERRO: cliente_id não encontrado nos dados para reserva auxiliar");
+            return false;
+        }
+        
         $query = "INSERT INTO reservas (cliente_id, mesa_id, data, hora, num_pessoas, status, reserva_principal_id) 
                   VALUES (:cliente_id, :mesa_id, :data, :hora, 0, 'Auxiliar', :reserva_principal_id)";
         
@@ -104,6 +110,10 @@ class ReservaController {
            'erro' => 'Reserva não encontrada.'
        ];
    }
+
+    // ADICIONAR: Incluir cliente_id nos dados para operações subsequentes
+    $dados['cliente_id'] = $reservaExistente['cliente_id'];
+
 
    // Verificar se a reserva não foi cancelada
    if ($reservaExistente['status'] === 'Cancelado') {
@@ -257,6 +267,12 @@ private function cancelarMesasExtras($reserva_id, $mesas_necessarias) {
 
 private function criarMesasAdicionais($dados, $mesasDisponiveis, $mesasAtuais, $mesasNecessarias) {
     $mesasParaCriar = $mesasNecessarias - $mesasAtuais;
+    
+    // Garantir que temos o cliente_id
+    if (!isset($dados['cliente_id'])) {
+        $reservaExistente = $this->buscarReservaPorId($dados['reserva_id']);
+        $dados['cliente_id'] = $reservaExistente['cliente_id'];
+    }
     
     for ($i = 0; $i < $mesasParaCriar && $i < count($mesasDisponiveis); $i++) {
         $this->criarReservaAuxiliar($dados, $mesasDisponiveis[$i]['id'], $dados['reserva_id']);
