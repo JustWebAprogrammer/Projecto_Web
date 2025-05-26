@@ -132,6 +132,10 @@ switch($method) {
 
     case 'PUT':
         try {
+            // DEBUG - adicione estas linhas no início do case PUT
+            error_log("DEBUG PUT - POST data: " . print_r($_POST, true));
+            error_log("DEBUG PUT - REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
+            
             // Verificar se o usuário está logado
             if (!verificarLogin()) {
                 http_response_code(401);
@@ -141,6 +145,9 @@ switch($method) {
     
             // Edição de reservas
             if (isset($_POST['reserva_id'])) {
+                // DEBUG
+                error_log("DEBUG - Reserva ID encontrado: " . $_POST['reserva_id']);
+                
                 // Verificar se os dados vêm com nomes originais do HTML ou alternativos
                 if (isset($_POST['reservation_date']) && isset($_POST['reservation_time']) && isset($_POST['num_people'])) {
                     // Nomes originais do HTML
@@ -150,6 +157,7 @@ switch($method) {
                         'hora' => $_POST['reservation_time'],
                         'num_pessoas' => (int)$_POST['num_people']
                     ];
+                    error_log("DEBUG - Usando nomes originais do HTML");
                 } else {
                     // Nomes alternativos (compatibilidade)
                     $data = [
@@ -158,7 +166,12 @@ switch($method) {
                         'hora' => $_POST['hora'],
                         'num_pessoas' => (int)$_POST['num_pessoas']
                     ];
+                    error_log("DEBUG - Usando nomes alternativos");
                 }
+                
+                // DEBUG
+                error_log("DEBUG - Dados para edição: " . print_r($data, true));
+                
                 $isFormSubmission = true;
             } else {
                 // Dados JSON

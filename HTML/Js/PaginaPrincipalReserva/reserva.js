@@ -35,7 +35,16 @@ function limitarNumeroInput(input, maxValue = 60) {
 function validateForm(event) {
     event.preventDefault();
 
-   
+
+    // Debug persistente - criar um elemento na página para mostrar os valores
+    let debugDiv = document.getElementById('debug-info');
+    if (!debugDiv) {
+        debugDiv = document.createElement('div');
+        debugDiv.id = 'debug-info';
+        debugDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: black; color: white; padding: 10px; z-index: 9999; max-width: 300px; font-size: 12px;';
+        document.body.appendChild(debugDiv);
+    }
+
     // Limpar mensagem de erro anterior
     const errorMessage = document.getElementById('error-message');
     errorMessage.textContent = '';
@@ -44,8 +53,20 @@ function validateForm(event) {
     // Obter valores dos campos
     const dateInput = document.getElementById('reservation-date').value;
     const numPeopleInput = document.getElementById('num-people').value;
-    const timeInput = document.getElementById('reservation-time').value;
+    const timeInputElement = document.getElementById('reservation-time');
+    const timeInputValue = timeInputElement.value;
     const isEdit = document.getElementById('reserva-form').dataset.editId;
+
+    // MOSTRAR DEBUG DOS VALORES
+    debugDiv.innerHTML = `
+        <strong>DEBUG:</strong><br>
+        Data: "${dateInput}"<br>
+        Pessoas: "${numPeopleInput}"<br>
+        Hora Atual: "${timeInputValue}"<br>
+        Hora Attribute: "${timeInputElement.getAttribute('data-original-value') || 'null'}"<br>
+        É Edição: ${isEdit ? 'SIM' : 'NÃO'}<br>
+        Hora Final: "${timeInputValue || timeInputElement.getAttribute('data-original-value') || ''}"
+    `;
 
     // Validar Data Desejada
     const selectedDate = new Date(dateInput);
@@ -81,21 +102,32 @@ function validateForm(event) {
         return false;
     }
 
-    // Validar Melhor Horário - APENAS se o campo não estiver vazio
-    if (timeInput && timeInput.trim() !== '') {
-        const [hours, minutes] = timeInput.split(':').map(Number);
-        if (isNaN(hours) || isNaN(minutes) || hours < 9 || hours > 22) {
-            errorMessage.textContent = 'O horário deve estar entre 09:00 e 22:00.';
-            return false;
-        }
-    } else {
+    // Validar Melhor Horário - VERSÃO MAIS ROBUSTA
+    const finalTimeValue = timeInputValue || timeInputElement.getAttribute('data-original-value') || '';
+    
+    debugDiv.innerHTML += `<br><strong>Validando hora: "${finalTimeValue}"</strong>`;
+    
+    if (!finalTimeValue || finalTimeValue.trim() === '') {
         errorMessage.textContent = 'Por favor, selecione um horário.';
+        debugDiv.innerHTML += `<br><span style="color: red;">ERRO: Horário vazio</span>`;
+        return false;
+    }
+
+    const timeParts = finalTimeValue.split(':');
+    const hours = parseInt(timeParts[0]);
+    const minutes = parseInt(timeParts[1]);
+    
+    debugDiv.innerHTML += `<br>Horas: ${hours}, Minutos: ${minutes}`;
+    
+    if (isNaN(hours) || isNaN(minutes) || hours < 9 || hours > 22) {
+        errorMessage.textContent = 'O horário deve estar entre 09:00 e 22:00.';
+        debugDiv.innerHTML += `<br><span style="color: red;">ERRO: Horário inválido</span>`;
         return false;
     }
 
     // Validação especial para edição
     if (isEdit) {
-        const reservaDateTime = new Date(dateInput + 'T' + timeInput);
+        const reservaDateTime = new Date(dateInput + 'T' + finalTimeValue);
         const agora = new Date();
         const diferencaHoras = (reservaDateTime - agora) / (1000 * 60 * 60);
         
@@ -119,14 +151,19 @@ function validateForm(event) {
         }
     }
 
-    // Mostrar loading
-    const submitBtn = document.querySelector('#reserva-form button[type="submit"]');
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = isEdit ? 'Salvando...' : 'Processando...';
-    submitBtn.disabled = true;
+    debugDiv.innerHTML += `<br><span style="color: green;">VALIDAÇÃO OK - Enviando...</span>`;
 
-    // Enviar formulário
-    document.getElementById('reserva-form').submit();
+    // AGUARDAR 2 SEGUNDOS PARA VER O DEBUG ANTES DE ENVIAR
+    setTimeout(() => {
+        // Mostrar loading
+        const submitBtn = document.querySelector('#reserva-form button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = isEdit ? 'Salvando...' : 'Processando...';
+        submitBtn.disabled = true;
+
+        // Enviar formulário
+        document.getElementById('reserva-form').submit();
+    }, 2000);
     
     return false;
 }
@@ -171,26 +208,31 @@ function checkEditMode() {
         }
         
         if (horario) {
-            document.getElementById('reservation-time').value = horario;
+            const timeElement = document.getElementById('reservation-time');
+            timeElement.value = horario;
+            // IMPORTANTE: Preservar o valor original
+            timeElement.setAttribute('data-original-value', horario);
+            
+            // FORÇA A ATUALIZAÇÃO DO VALOR (alguns navegadores precisam disso)
+            timeElement.dispatchEvent(new Event('input'));
+            timeElement.dispatchEvent(new Event('change'));
         }
         
         if (pessoas) {
             document.getElementById('num-people').value = pessoas;
         }
         
-        // Alterar textos da interface
+        // Resto do código...
         document.querySelector('.reserva-section h2').textContent = 'Editar Reserva';
         document.querySelector('.reserva-section p').textContent = 'Modifique os detalhes da sua reserva';
         document.querySelector('#reserva-form button[type="submit"]').textContent = 'Salvar Alterações';
         
-        // Adicionar campo hidden para método PUT
         const methodField = document.createElement('input');
         methodField.type = 'hidden';
         methodField.name = '_method';
         methodField.value = 'PUT';
         document.getElementById('reserva-form').appendChild(methodField);
         
-        // Adicionar campo hidden para ID da reserva
         const idField = document.createElement('input');
         idField.type = 'hidden';
         idField.name = 'reserva_id';
