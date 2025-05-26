@@ -46,6 +46,36 @@ class Reserva {
         return false;
     }
 
+
+    // NOVO MÉTODO para buscar mesas excluindo reserva atual
+public function buscarMesasDisponiveisParaEdicao($data, $hora, $num_pessoas, $reserva_atual_id) {
+    $mesasNecessarias = ceil($num_pessoas / 4);
+    
+    $query = "SELECT m.id, m.capacidade 
+              FROM mesas m 
+              WHERE m.estado = 'Livre' 
+              AND m.id NOT IN (
+                  SELECT r.mesa_id 
+                  FROM reservas r 
+                  WHERE r.data = :data 
+                  AND r.hora = :hora 
+                  AND r.status IN ('Reservado', 'Auxiliar')
+                  AND r.id != :reserva_atual_id 
+                  AND (r.reserva_principal_id IS NULL OR r.reserva_principal_id != :reserva_atual_id)
+              )
+              ORDER BY m.capacidade ASC 
+              LIMIT :mesas_necessarias";
+
+    $stmt = $this->conn->prepare($query);
+    $stmt->bindParam(":data", $data);
+    $stmt->bindParam(":hora", $hora);
+    $stmt->bindParam(":reserva_atual_id", $reserva_atual_id);
+    $stmt->bindParam(":mesas_necessarias", $mesasNecessarias, PDO::PARAM_INT);
+    
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
     public function buscarMesasDisponiveis($data, $hora, $num_pessoas) {
         $mesasNecessarias = ceil($num_pessoas / 4);
         

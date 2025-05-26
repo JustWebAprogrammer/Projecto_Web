@@ -96,105 +96,131 @@ class ReservaController {
 
 
     public function editarReserva($dados) {
-    // Verificar se a reserva existe e pode ser editada
-    $reservaExistente = $this->buscarReservaPorId($dados['reserva_id']);
-    if (!$reservaExistente) {
-        return [
-            'sucesso' => false,
-            'erro' => 'Reserva não encontrada.'
-        ];
-    }
+   // Verificar se a reserva existe e pode ser editada
+   $reservaExistente = $this->buscarReservaPorId($dados['reserva_id']);
+   if (!$reservaExistente) {
+       return [
+           'sucesso' => false,
+           'erro' => 'Reserva não encontrada.'
+       ];
+   }
 
-    // Verificar se a reserva não foi cancelada
-    if ($reservaExistente['status'] === 'Cancelado') {
-        return [
-            'sucesso' => false,
-            'erro' => 'Não é possível editar uma reserva cancelada.'
-        ];
-    }
+   // Verificar se a reserva não foi cancelada
+   if ($reservaExistente['status'] === 'Cancelado') {
+       return [
+           'sucesso' => false,
+           'erro' => 'Não é possível editar uma reserva cancelada.'
+       ];
+   }
 
-    // Verificar se ainda é possível editar (2 horas antes)
-    $dataHoraReserva = new DateTime($reservaExistente['data'] . ' ' . $reservaExistente['hora']);
-    $agora = new DateTime();
-    $diferenca = $agora->diff($dataHoraReserva);
+   // Verificar se ainda é possível editar (2 horas antes)
+   $dataHoraReserva = new DateTime($reservaExistente['data'] . ' ' . $reservaExistente['hora']);
+   $agora = new DateTime();
+   $diferenca = $agora->diff($dataHoraReserva);
+   
+   $totalMinutos = ($diferenca->days * 24 * 60) + ($diferenca->h * 60) + $diferenca->i;
+   if ($agora > $dataHoraReserva) {
+       $totalMinutos = -$totalMinutos;
+   }
+   $horasRestantes = $totalMinutos / 60;
+
+   if ($horasRestantes < 2) {
+       return [
+           'sucesso' => false,
+           'erro' => 'Não é possível editar a reserva com menos de 2 horas de antecedência.'
+       ];
+   }
+
+   // Validar novos dados
+   $validacao = $this->validarDadosReserva($dados);
+   if (!$validacao['valido']) {
+       return [
+           'sucesso' => false,
+           'erro' => $validacao['erro']
+       ];
+   }
+
+   // Verificar se houve mudanças significativas
+   $mudouDataHora = ($dados['data'] != $reservaExistente['data'] || $dados['hora'] != $reservaExistente['hora']);
+   $mudouPessoas = ($dados['num_pessoas'] != $reservaExistente['num_pessoas']);
+   
+   // Verificar disponibilidade de mesas apenas se necessário
+   if ($mudouDataHora || $mudouPessoas) {
+       $mesasDisponiveis = $this->reserva->buscarMesasDisponiveisParaEdicao(
+           $dados['data'],
+           $dados['hora'],
+           $dados['num_pessoas'],
+           $dados['reserva_id']
+       );
+       
+       $mesasNecessarias = ceil($dados['num_pessoas'] / 4);
+       $mesasAtuais = $this->contarMesasReserva($dados['reserva_id']);
+       
+       if ($mesasNecessarias > $mesasAtuais) {
+           $mesasAdicionais = $mesasNecessarias - $mesasAtuais;
+           if (count($mesasDisponiveis) < $mesasAdicionais) {
+               return [
+                   'sucesso' => false,
+                   'erro' => 'Não há mesas suficientes disponíveis para este horário.'
+               ];
+           }
+       }
+       
+       if ($mesasNecessarias < $mesasAtuais) {
+           $this->cancelarMesasExtras($dados['reserva_id'], $mesasNecessarias);
+       }
+       
+       if ($mesasNecessarias > $mesasAtuais) {
+           $this->criarMesasAdicionais($dados, $mesasDisponiveis, $mesasAtuais, $mesasNecessarias);
+       }
+   }
+
+   // Atualizar reserva principal
+   $this->reserva->id = $dados['reserva_id'];
+   $this->reserva->data = $dados['data'];
+   $this->reserva->hora = $dados['hora'];
+   $this->reserva->num_pessoas = $dados['num_pessoas'];
+
+   if ($this->reserva->atualizar()) {
+       return [
+           'sucesso' => true,
+           'mensagem' => 'Reserva atualizada com sucesso!'
+       ];
+   } else {
+       return [
+           'sucesso' => false,
+           'erro' => 'Erro ao atualizar reserva no banco de dados.'
+       ];
+   }
+}
+
+// NOVO MÉTODO - Buscar mesas disponíveis excluindo a reserva atual
+private function buscarMesasDisponiveisParaEdicao($data, $hora, $num_pessoas, $reserva_atual_id) {
+    $mesasNecessarias = ceil($num_pessoas / 4);
     
-    // Calcular diferença em horas corretamente
-    $totalMinutos = ($diferenca->days * 24 * 60) + ($diferenca->h * 60) + $diferenca->i;
-    if ($agora > $dataHoraReserva) {
-        $totalMinutos = -$totalMinutos;
-    }
-    $horasRestantes = $totalMinutos / 60;
+    $query = "SELECT m.id, m.capacidade 
+              FROM mesas m 
+              WHERE m.estado = 'Livre' 
+              AND m.id NOT IN (
+                  SELECT r.mesa_id 
+                  FROM reservas r 
+                  WHERE r.data = :data 
+                  AND r.hora = :hora 
+                  AND r.status IN ('Reservado', 'Auxiliar')
+                  AND r.id != :reserva_atual_id 
+                  AND (r.reserva_principal_id IS NULL OR r.reserva_principal_id != :reserva_atual_id)
+              )
+              ORDER BY m.capacidade ASC 
+              LIMIT :mesas_necessarias";
 
-    if ($horasRestantes < 2) {
-        return [
-            'sucesso' => false,
-            'erro' => 'Não é possível editar a reserva com menos de 2 horas de antecedência.'
-        ];
-    }
-
-    // Validar novos dados
-    $validacao = $this->validarDadosReserva($dados);
-    if (!$validacao['valido']) {
-        return [
-            'sucesso' => false,
-            'erro' => $validacao['erro']
-        ];
-    }
-
-    // Se mudou data/hora ou número de pessoas, verificar disponibilidade
-    $mudouDataHora = ($dados['data'] != $reservaExistente['data'] || $dados['hora'] != $reservaExistente['hora']);
-    $mudouPessoas = ($dados['num_pessoas'] != $reservaExistente['num_pessoas']);
+    $stmt = $this->db->prepare($query);
+    $stmt->bindParam(":data", $data);
+    $stmt->bindParam(":hora", $hora);
+    $stmt->bindParam(":reserva_atual_id", $reserva_atual_id);
+    $stmt->bindParam(":mesas_necessarias", $mesasNecessarias, PDO::PARAM_INT);
     
-    if ($mudouDataHora || $mudouPessoas) {
-        // Verificar disponibilidade das mesas
-        $mesasDisponiveis = $this->reserva->buscarMesasDisponiveis(
-            $dados['data'],
-            $dados['hora'],
-            $dados['num_pessoas']
-        );
-        
-        $mesasNecessarias = ceil($dados['num_pessoas'] / 4);
-        $mesasAtuais = $this->contarMesasReserva($dados['reserva_id']);
-        
-        // Se precisar de mais mesas do que já tem reservado
-        if ($mesasNecessarias > $mesasAtuais) {
-            $mesasAdicionais = $mesasNecessarias - $mesasAtuais;
-            if (count($mesasDisponiveis) < $mesasAdicionais) {
-                return [
-                    'sucesso' => false,
-                    'erro' => 'Não há mesas suficientes disponíveis para este horário.'
-                ];
-            }
-        }
-        
-        // Se precisar de menos mesas, cancelar as extras
-        if ($mesasNecessarias < $mesasAtuais) {
-            $this->cancelarMesasExtras($dados['reserva_id'], $mesasNecessarias);
-        }
-        
-        // Se precisar de mais mesas, criar as adicionais
-        if ($mesasNecessarias > $mesasAtuais) {
-            $this->criarMesasAdicionais($dados, $mesasDisponiveis, $mesasAtuais, $mesasNecessarias);
-        }
-    }
-
-    // Atualizar reserva principal
-    $this->reserva->id = $dados['reserva_id'];
-    $this->reserva->data = $dados['data'];
-    $this->reserva->hora = $dados['hora'];
-    $this->reserva->num_pessoas = $dados['num_pessoas'];
-
-    if ($this->reserva->atualizar()) {
-        return [
-            'sucesso' => true,
-            'mensagem' => 'Reserva atualizada com sucesso!'
-        ];
-    } else {
-        return [
-            'sucesso' => false,
-            'erro' => 'Erro ao atualizar reserva.'
-        ];
-    }
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // Métodos auxiliares para gerenciar mesas na edição
@@ -348,23 +374,36 @@ public function cancelarReserva($reserva_id) {
     }
 }
 
-    private function validarDadosReserva($dados) {
-        $validator = new ReservaValidator();
-        
-        if (!$validator->validarData($dados['data'])) {
-            return ['valido' => false, 'erro' => 'Data inválida.'];
-        }
-
-        if (!$validator->validarHorario($dados['hora'])) {
-            return ['valido' => false, 'erro' => 'Horário deve ser entre 09:00 e 22:00.'];
-        }
-
-        if (!$validator->validarNumPessoas($dados['num_pessoas'])) {
-            return ['valido' => false, 'erro' => 'Número de pessoas deve ser entre 1 e 60.'];
-        }
-
-        return ['valido' => true];
+private function validarDadosReserva($dados) {
+    $validator = new ReservaValidator();
+    
+    // Validar formato da data
+    if (empty($dados['data']) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dados['data'])) {
+        return ['valido' => false, 'erro' => 'Formato de data inválido. Use YYYY-MM-DD.'];
     }
+
+    if (!$validator->validarData($dados['data'])) {
+        return ['valido' => false, 'erro' => 'Data inválida ou fora do intervalo permitido (hoje até +7 dias).'];
+    }
+
+    // Validar formato do horário
+    if (empty($dados['hora'])) {
+        return ['valido' => false, 'erro' => 'Horário não fornecido. Selecione um horário válido.'];
+    }
+    if (!preg_match('/^\d{2}:\d{2}$/', $dados['hora'])) {
+        return ['valido' => false, 'erro' => 'Formato de horário inválido. Use HH:MM (ex.: 14:30).'];
+    }
+
+    if (!$validator->validarHorario($dados['hora'])) {
+        return ['valido' => false, 'erro' => 'Horário deve ser entre 09:00 e 22:00.'];
+    }
+
+    if (!$validator->validarNumPessoas($dados['num_pessoas'])) {
+        return ['valido' => false, 'erro' => 'Número de pessoas deve ser entre 1 e 60.'];
+    }
+
+    return ['valido' => true];
+}
 
     private function cancelarReservas($ids) {
         foreach ($ids as $id) {

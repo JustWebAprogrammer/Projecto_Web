@@ -14,6 +14,8 @@ if (!verificarLogin()) {
 }
 
 $cliente = obterClienteLogado();
+
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">

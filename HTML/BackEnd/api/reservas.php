@@ -130,89 +130,76 @@ switch($method) {
         echo json_encode($reservas);
         break;
 
-    case 'PUT':
-        try {
-            // DEBUG - adicione estas linhas no início do case PUT
-            error_log("DEBUG PUT - POST data: " . print_r($_POST, true));
-            error_log("DEBUG PUT - REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
-            
-            // Verificar se o usuário está logado
-            if (!verificarLogin()) {
-                http_response_code(401);
-                echo json_encode(["erro" => "Usuário não autenticado"]);
-                exit;
-            }
-    
-            // Edição de reservas
-            if (isset($_POST['reserva_id'])) {
+        case 'PUT':
+            try {
                 // DEBUG
-                error_log("DEBUG - Reserva ID encontrado: " . $_POST['reserva_id']);
+                error_log("DEBUG PUT - POST data: " . print_r($_POST, true));
+                error_log("DEBUG PUT - REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
                 
-                // Verificar se os dados vêm com nomes originais do HTML ou alternativos
-                if (isset($_POST['reservation_date']) && isset($_POST['reservation_time']) && isset($_POST['num_people'])) {
-                    // Nomes originais do HTML
+                // Verificar se o usuário está logado
+                if (!verificarLogin()) {
+                    http_response_code(401);
+                    echo json_encode(["erro" => "Usuário não autenticado"]);
+                    exit;
+                }
+            
+                // Edição de reservas
+                if (isset($_POST['reserva_id'])) {
+                    error_log("DEBUG - Reserva ID encontrado: " . $_POST['reserva_id']);
+                    
+                    // Mapear nomes do formulário para os nomes esperados
                     $data = [
                         'reserva_id' => $_POST['reserva_id'],
-                        'data' => $_POST['reservation_date'],
-                        'hora' => $_POST['reservation_time'],
-                        'num_pessoas' => (int)$_POST['num_people']
+                        'data' => $_POST['reservation_date'] ?? $_POST['data'],
+                        'hora' => $_POST['reservation_time'] ?? $_POST['hora'],
+                        'num_pessoas' => (int)($_POST['num_people'] ?? $_POST['num_pessoas'])
                     ];
-                    error_log("DEBUG - Usando nomes originais do HTML");
+                    
+                    // DEBUG: Verificar o valor do horário
+                    error_log("DEBUG - Horário recebido: " . ($data['hora'] ?? 'Nenhum'));
+                    error_log("DEBUG - Dados para edição: " . print_r($data, true));
+                    
+                    $isFormSubmission = true;
                 } else {
-                    // Nomes alternativos (compatibilidade)
-                    $data = [
-                        'reserva_id' => $_POST['reserva_id'],
-                        'data' => $_POST['data'],
-                        'hora' => $_POST['hora'],
-                        'num_pessoas' => (int)$_POST['num_pessoas']
-                    ];
-                    error_log("DEBUG - Usando nomes alternativos");
+                    // Dados JSON
+                    $json = json_decode(file_get_contents("php://input"), true);
+                    if (!$json || !isset($json['reserva_id'])) {
+                        http_response_code(400);
+                        echo json_encode(["erro" => "Dados inválidos para edição"]);
+                        break;
+                    }
+                    $data = $json;
+                    $isFormSubmission = false;
                 }
-                
-                // DEBUG
-                error_log("DEBUG - Dados para edição: " . print_r($data, true));
-                
-                $isFormSubmission = true;
-            } else {
-                // Dados JSON
-                $json = json_decode(file_get_contents("php://input"), true);
-                if (!$json || !isset($json['reserva_id'])) {
-                    http_response_code(400);
-                    echo json_encode(["erro" => "Dados inválidos para edição"]);
-                    break;
-                }
-                $data = $json;
-                $isFormSubmission = false;
-            }
-    
-            $resultado = $controller->editarReserva($data);
             
-            if ($resultado['sucesso']) {
-                if ($isFormSubmission) {
-                    header("Location: ../../Perfil.php?sucesso=" . urlencode($resultado['mensagem']));
+                $resultado = $controller->editarReserva($data);
+                
+                if ($resultado['sucesso']) {
+                    if ($isFormSubmission) {
+                        header("Location: ../../Perfil.php?sucesso=" . urlencode($resultado['mensagem']));
+                        exit;
+                    } else {
+                        echo json_encode($resultado);
+                    }
+                } else {
+                    if ($isFormSubmission) {
+                        header("Location: ../../Reserva.html?erro=" . urlencode($resultado['erro']));
+                        exit;
+                    } else {
+                        http_response_code(400);
+                        echo json_encode($resultado);
+                    }
+                }
+            } catch (Exception $e) {
+                if (isset($isFormSubmission) && $isFormSubmission) {
+                    header("Location: ../../Reserva.html?erro=" . urlencode("Erro interno do servidor: " . $e->getMessage()));
                     exit;
                 } else {
-                    echo json_encode($resultado);
-                }
-            } else {
-                if ($isFormSubmission) {
-                    header("Location: ../../Reserva.html?erro=" . urlencode($resultado['erro']));
-                    exit;
-                } else {
-                    http_response_code(400);
-                    echo json_encode($resultado);
+                    http_response_code(500);
+                    echo json_encode(["erro" => "Erro interno do servidor"]);
                 }
             }
-        } catch (Exception $e) {
-            if (isset($isFormSubmission) && $isFormSubmission) {
-                header("Location: ../../Reserva.html?erro=" . urlencode("Erro interno do servidor"));
-                exit;
-            } else {
-                http_response_code(500);
-                echo json_encode(["erro" => "Erro interno do servidor"]);
-            }
-        }
-        break;
+            break;
 
     case 'DELETE':
         // Verificar se o usuário está logado
