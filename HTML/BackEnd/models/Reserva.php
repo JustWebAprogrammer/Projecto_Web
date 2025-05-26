@@ -73,25 +73,36 @@ class Reserva {
 
     public function atualizar() {
         $query = "UPDATE " . $this->table_name . " 
-                  SET data = :data, hora = :hora, num_pessoas = :num_pessoas 
-                  WHERE id = :id";
+              SET data = :data, hora = :hora, num_pessoas = :num_pessoas 
+              WHERE id = :id";
 
-        $stmt = $this->conn->prepare($query);
+    $stmt = $this->conn->prepare($query);
 
-        $this->data = htmlspecialchars(strip_tags($this->data));
-        $this->hora = htmlspecialchars(strip_tags($this->hora));
-        $this->num_pessoas = htmlspecialchars(strip_tags($this->num_pessoas));
-        $this->id = htmlspecialchars(strip_tags($this->id));
+    $this->data = htmlspecialchars(strip_tags($this->data));
+    $this->hora = htmlspecialchars(strip_tags($this->hora));
+    $this->num_pessoas = htmlspecialchars(strip_tags($this->num_pessoas));
+    $this->id = htmlspecialchars(strip_tags($this->id));
 
-        $stmt->bindParam(":data", $this->data);
-        $stmt->bindParam(":hora", $this->hora);
-        $stmt->bindParam(":num_pessoas", $this->num_pessoas);
-        $stmt->bindParam(":id", $this->id);
+    $stmt->bindParam(":data", $this->data);
+    $stmt->bindParam(":hora", $this->hora);
+    $stmt->bindParam(":num_pessoas", $this->num_pessoas);
+    $stmt->bindParam(":id", $this->id);
 
-        if($stmt->execute()) {
-            return true;
-        }
-        return false;
+    if($stmt->execute()) {
+        // Atualizar também as reservas auxiliares (se existirem)
+        $query_aux = "UPDATE " . $this->table_name . " 
+                      SET data = :data, hora = :hora 
+                      WHERE reserva_principal_id = :reserva_id";
+        
+        $stmt_aux = $this->conn->prepare($query_aux);
+        $stmt_aux->bindParam(":data", $this->data);
+        $stmt_aux->bindParam(":hora", $this->hora);
+        $stmt_aux->bindParam(":reserva_id", $this->id);
+        $stmt_aux->execute();
+        
+        return true;
+    }
+    return false;
     }
 }
 

@@ -131,14 +131,44 @@ function displayReservations(reservas) {
 
     reservas.forEach((reserva) => {
         const dataFormatada = formatarData(reserva.data);
-        const podeModificar = canModifyReservation(reserva.data, reserva.hora);
+        const podeModificar = canModifyReservation(reserva.data, reserva.hora) && reserva.status !== 'Cancelado';
         const tempoRestante = formatTimeRemaining(reserva.data, reserva.hora);
         
         const reservaCard = document.createElement('div');
         reservaCard.className = 'reserva-card';
         
+        // Adicionar classe para reservas canceladas
+        if (reserva.status === 'Cancelado') {
+            reservaCard.classList.add('reserva-cancelada');
+        }
+        
         const statusClass = podeModificar ? '' : 'disabled';
-        const statusMessage = podeModificar ? '' : `<p class="tempo-limite">${tempoRestante || 'Não é mais possível editar/cancelar'}</p>`;
+        let statusMessage = '';
+        
+        if (reserva.status === 'Cancelado') {
+            statusMessage = '<p class="status-cancelado">Reserva cancelada</p>';
+        } else if (!podeModificar && reserva.status !== 'Cancelado') {
+            statusMessage = `<p class="tempo-limite">${tempoRestante || 'Não é mais possível editar/cancelar'}</p>`;
+        }
+        
+        // Mostrar botões apenas para reservas não canceladas
+        let botoesAcoes = '';
+        if (reserva.status !== 'Cancelado') {
+            botoesAcoes = `
+                <div class="reserva-acoes">
+                    <button class="editar-reserva ${statusClass}" 
+                            onclick="editarReserva(${reserva.id})" 
+                            ${!podeModificar ? 'disabled title="Não é possível editar com menos de 2h de antecedência"' : ''}>
+                        Editar
+                    </button>
+                    <button class="cancelar-reserva ${statusClass}" 
+                            onclick="cancelarReserva(${reserva.id})" 
+                            ${!podeModificar ? 'disabled title="Não é possível cancelar com menos de 2h de antecedência"' : ''}>
+                        Cancelar
+                    </button>
+                </div>
+            `;
+        }
         
         reservaCard.innerHTML = `
             <div class="reserva-info">
@@ -148,59 +178,63 @@ function displayReservations(reservas) {
                 <p><strong>Status:</strong> ${reserva.status}</p>
                 ${statusMessage}
             </div>
-            <div class="reserva-acoes">
-                <button class="editar-reserva ${statusClass}" 
-                        onclick="editarReserva(${reserva.id})" 
-                        ${!podeModificar ? 'disabled title="Não é possível editar com menos de 2h de antecedência"' : ''}>
-                    Editar
-                </button>
-                <button class="cancelar-reserva ${statusClass}" 
-                        onclick="cancelarReserva(${reserva.id})" 
-                        ${!podeModificar ? 'disabled title="Não é possível cancelar com menos de 2h de antecedência"' : ''}>
-                    Cancelar
-                </button>
-            </div>
+            ${botoesAcoes}
         `;
         reservasLista.appendChild(reservaCard);
     });
 }
 
 function editarReserva(reservaId) {
-    // Buscar dados da reserva específica
-    fetch(`BackEnd/api/reservas.php?id=${reservaId}`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
+    // Buscar a reserva na lista atual em vez de fazer nova requisição
+    const reservasLista = document.getElementById('reservas-lista');
+    const reservaCards = reservasLista.querySelectorAll('.reserva-card');
+    let reservaData = null;
+    
+    // Encontrar a reserva na lista atual
+    reservaCards.forEach(card => {
+        const botaoEditar = card.querySelector('.editar-reserva');
+        if (botaoEditar && botaoEditar.getAttribute('onclick').includes(reservaId)) {
+            const info = card.querySelector('.reserva-info');
+            const dataText = info.children[0].textContent.replace('Data: ', '');
+            const horaText = info.children[1].textContent.replace('Horário: ', '');
+            const pessoasText = info.children[2].textContent.replace('Pessoas: ', '');
+            
+            reservaData = {
+                id: reservaId,
+                data: dataText,
+                hora: horaText,
+                num_pessoas: pessoasText
+            };
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.sucesso && data.reserva) {
-            const reserva = data.reserva;
-            
-            if (!canModifyReservation(reserva.data, reserva.hora)) {
-                alert('Não é possível editar a reserva com menos de 2 horas de antecedência.');
-                return;
-            }
-            
-            // Redirecionar para página de reserva com parâmetros de edição
-            const params = new URLSearchParams({
-                edit: 'true',
-                id: reserva.id,
-                data: reserva.data,
-                horario: reserva.hora,
-                pessoas: reserva.num_pessoas
-            });
-            
-            window.location.href = `Reserva.html?${params.toString()}`;
-        } else {
-            alert('Erro ao carregar dados da reserva.');
-        }
-    })
-    .catch(error => {
-        console.error('Erro:', error);
-        alert('Erro de conexão. Tente novamente.');
     });
+    
+    if (!reservaData) {
+        alert('Erro ao carregar dados da reserva.');
+        return;
+    }
+    
+    if (!canModifyReservation(reservaData.data, reservaData.hora)) {
+        alert('Não é possível editar a reserva com menos de 2 horas de antecedência.');
+        return;
+    }
+    
+    // Converter data para formato YYYY-MM-DD se necessário
+    let dataFormatted = reservaData.data;
+    if (reservaData.data.includes('/')) {
+        const [dia, mes, ano] = reservaData.data.split('/');
+        dataFormatted = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+    }
+    
+    // Redirecionar para página de reserva com parâmetros de edição
+    const params = new URLSearchParams({
+        edit: 'true',
+        id: reservaData.id,
+        data: dataFormatted,
+        horario: reservaData.hora,
+        pessoas: reservaData.num_pessoas
+    });
+    
+    window.location.href = `Reserva.html?${params.toString()}`;
 }
 
 function cancelarReserva(reservaId) {

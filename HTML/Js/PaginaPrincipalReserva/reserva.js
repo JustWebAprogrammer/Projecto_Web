@@ -35,6 +35,7 @@ function limitarNumeroInput(input, maxValue = 60) {
 function validateForm(event) {
     event.preventDefault();
 
+   
     // Limpar mensagem de erro anterior
     const errorMessage = document.getElementById('error-message');
     errorMessage.textContent = '';
@@ -80,10 +81,15 @@ function validateForm(event) {
         return false;
     }
 
-    // Validar Melhor Horário
-    const [hours, minutes] = timeInput.split(':').map(Number);
-    if (hours < 9 || hours > 22) {
-        errorMessage.textContent = 'O horário deve estar entre 09:00 e 22:00.';
+    // Validar Melhor Horário - APENAS se o campo não estiver vazio
+    if (timeInput && timeInput.trim() !== '') {
+        const [hours, minutes] = timeInput.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes) || hours < 9 || hours > 22) {
+            errorMessage.textContent = 'O horário deve estar entre 09:00 e 22:00.';
+            return false;
+        }
+    } else {
+        errorMessage.textContent = 'Por favor, selecione um horário.';
         return false;
     }
 

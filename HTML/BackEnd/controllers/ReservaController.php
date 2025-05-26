@@ -96,55 +96,146 @@ class ReservaController {
 
 
     public function editarReserva($dados) {
-        // Verificar se a reserva existe e pode ser editada
-        $reservaExistente = $this->buscarReservaPorId($dados['reserva_id']);
-        if (!$reservaExistente) {
-            return [
-                'sucesso' => false,
-                'erro' => 'Reserva não encontrada.'
-            ];
+    // Verificar se a reserva existe e pode ser editada
+    $reservaExistente = $this->buscarReservaPorId($dados['reserva_id']);
+    if (!$reservaExistente) {
+        return [
+            'sucesso' => false,
+            'erro' => 'Reserva não encontrada.'
+        ];
+    }
+
+    // Verificar se a reserva não foi cancelada
+    if ($reservaExistente['status'] === 'Cancelado') {
+        return [
+            'sucesso' => false,
+            'erro' => 'Não é possível editar uma reserva cancelada.'
+        ];
+    }
+
+    // Verificar se ainda é possível editar (2 horas antes)
+    $dataHoraReserva = new DateTime($reservaExistente['data'] . ' ' . $reservaExistente['hora']);
+    $agora = new DateTime();
+    $diferenca = $agora->diff($dataHoraReserva);
+    
+    // Calcular diferença em horas corretamente
+    $totalMinutos = ($diferenca->days * 24 * 60) + ($diferenca->h * 60) + $diferenca->i;
+    if ($agora > $dataHoraReserva) {
+        $totalMinutos = -$totalMinutos;
+    }
+    $horasRestantes = $totalMinutos / 60;
+
+    if ($horasRestantes < 2) {
+        return [
+            'sucesso' => false,
+            'erro' => 'Não é possível editar a reserva com menos de 2 horas de antecedência.'
+        ];
+    }
+
+    // Validar novos dados
+    $validacao = $this->validarDadosReserva($dados);
+    if (!$validacao['valido']) {
+        return [
+            'sucesso' => false,
+            'erro' => $validacao['erro']
+        ];
+    }
+
+    // Se mudou data/hora ou número de pessoas, verificar disponibilidade
+    $mudouDataHora = ($dados['data'] != $reservaExistente['data'] || $dados['hora'] != $reservaExistente['hora']);
+    $mudouPessoas = ($dados['num_pessoas'] != $reservaExistente['num_pessoas']);
+    
+    if ($mudouDataHora || $mudouPessoas) {
+        // Verificar disponibilidade das mesas
+        $mesasDisponiveis = $this->reserva->buscarMesasDisponiveis(
+            $dados['data'],
+            $dados['hora'],
+            $dados['num_pessoas']
+        );
+        
+        $mesasNecessarias = ceil($dados['num_pessoas'] / 4);
+        $mesasAtuais = $this->contarMesasReserva($dados['reserva_id']);
+        
+        // Se precisar de mais mesas do que já tem reservado
+        if ($mesasNecessarias > $mesasAtuais) {
+            $mesasAdicionais = $mesasNecessarias - $mesasAtuais;
+            if (count($mesasDisponiveis) < $mesasAdicionais) {
+                return [
+                    'sucesso' => false,
+                    'erro' => 'Não há mesas suficientes disponíveis para este horário.'
+                ];
+            }
         }
-
-        // Verificar se ainda é possível editar (2 horas antes)
-        $dataHoraReserva = new DateTime($reservaExistente['data'] . ' ' . $reservaExistente['hora']);
-        $agora = new DateTime();
-        $diferenca = $dataHoraReserva->diff($agora);
-        $horasRestantes = ($diferenca->days * 24) + $diferenca->h;
-
-        if ($horasRestantes < 2) {
-            return [
-                'sucesso' => false,
-                'erro' => 'Não é possível editar a reserva com menos de 2 horas de antecedência.'
-            ];
+        
+        // Se precisar de menos mesas, cancelar as extras
+        if ($mesasNecessarias < $mesasAtuais) {
+            $this->cancelarMesasExtras($dados['reserva_id'], $mesasNecessarias);
         }
-
-        // Validar novos dados
-        $validacao = $this->validarDadosReserva($dados);
-        if (!$validacao['valido']) {
-            return [
-                'sucesso' => false,
-                'erro' => $validacao['erro']
-            ];
-        }
-
-        // Atualizar reserva
-        $this->reserva->id = $dados['reserva_id'];
-        $this->reserva->data = $dados['data'];
-        $this->reserva->hora = $dados['hora'];
-        $this->reserva->num_pessoas = $dados['num_pessoas'];
-
-        if ($this->reserva->atualizar()) {
-            return [
-                'sucesso' => true,
-                'mensagem' => 'Reserva atualizada com sucesso!'
-            ];
-        } else {
-            return [
-                'sucesso' => false,
-                'erro' => 'Erro ao atualizar reserva.'
-            ];
+        
+        // Se precisar de mais mesas, criar as adicionais
+        if ($mesasNecessarias > $mesasAtuais) {
+            $this->criarMesasAdicionais($dados, $mesasDisponiveis, $mesasAtuais, $mesasNecessarias);
         }
     }
+
+    // Atualizar reserva principal
+    $this->reserva->id = $dados['reserva_id'];
+    $this->reserva->data = $dados['data'];
+    $this->reserva->hora = $dados['hora'];
+    $this->reserva->num_pessoas = $dados['num_pessoas'];
+
+    if ($this->reserva->atualizar()) {
+        return [
+            'sucesso' => true,
+            'mensagem' => 'Reserva atualizada com sucesso!'
+        ];
+    } else {
+        return [
+            'sucesso' => false,
+            'erro' => 'Erro ao atualizar reserva.'
+        ];
+    }
+}
+
+// Métodos auxiliares para gerenciar mesas na edição
+private function contarMesasReserva($reserva_id) {
+    $query = "SELECT COUNT(*) as total FROM reservas 
+              WHERE id = :reserva_id OR reserva_principal_id = :reserva_id";
+    $stmt = $this->db->prepare($query);
+    $stmt->bindParam(":reserva_id", $reserva_id);
+    $stmt->execute();
+    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $resultado['total'];
+}
+
+private function cancelarMesasExtras($reserva_id, $mesas_necessarias) {
+    // Manter apenas o número necessário de mesas
+    $query = "UPDATE reservas SET status = 'Cancelado' 
+              WHERE reserva_principal_id = :reserva_id 
+              AND id NOT IN (
+                  SELECT * FROM (
+                      SELECT id FROM reservas 
+                      WHERE reserva_principal_id = :reserva_id2 
+                      ORDER BY id ASC 
+                      LIMIT :limite
+                  ) as subquery
+              )";
+    
+    $stmt = $this->db->prepare($query);
+    $limite = $mesas_necessarias - 1; // -1 porque a principal não conta
+    $stmt->bindParam(":reserva_id", $reserva_id);
+    $stmt->bindParam(":reserva_id2", $reserva_id);
+    $stmt->bindParam(":limite", $limite, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+private function criarMesasAdicionais($dados, $mesasDisponiveis, $mesasAtuais, $mesasNecessarias) {
+    $mesasParaCriar = $mesasNecessarias - $mesasAtuais;
+    
+    for ($i = 0; $i < $mesasParaCriar && $i < count($mesasDisponiveis); $i++) {
+        $this->criarReservaAuxiliar($dados, $mesasDisponiveis[$i]['id'], $dados['reserva_id']);
+    }
+}
 
     private function buscarReservaPorId($id) {
         $query = "SELECT * FROM reservas WHERE id = :id LIMIT 1";
