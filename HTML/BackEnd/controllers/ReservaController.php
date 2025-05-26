@@ -20,14 +20,14 @@ class ReservaController {
                 'erro' => $validacao['erro']
             ];
         }
-
+    
         // Verificar disponibilidade de mesas
         $mesasDisponiveis = $this->reserva->buscarMesasDisponiveis(
             $dados['data'],
             $dados['hora'],
             $dados['num_pessoas']
         );
-
+    
         $mesasNecessarias = ceil($dados['num_pessoas'] / 4);
         
         if (count($mesasDisponiveis) < $mesasNecessarias) {
@@ -36,36 +36,65 @@ class ReservaController {
                 'erro' => 'Não há mesas suficientes disponíveis para este horário.'
             ];
         }
-
-        // Criar reservas (uma para cada mesa necessária)
-        $reservasCriadas = [];
-        for ($i = 0; $i < $mesasNecessarias; $i++) {
-            $this->reserva->cliente_id = $dados['cliente_id'] ?? 1;
-            $this->reserva->mesa_id = $mesasDisponiveis[$i]['id'];
-            $this->reserva->data = $dados['data'];
-            $this->reserva->hora = $dados['hora'];
-            $this->reserva->num_pessoas = $i == 0 ? $dados['num_pessoas'] : 0;
-            $this->reserva->status = 'Reservado';
-
-            if ($this->reserva->criar()) {
-                $reservasCriadas[] = $this->db->lastInsertId();
-            } else {
-                $this->cancelarReservas($reservasCriadas);
-                return [
-                    'sucesso' => false,
-                    'erro' => 'Erro ao criar reserva.'
-                ];
+    
+        // Criar APENAS UMA reserva principal
+        $this->reserva->cliente_id = $dados['cliente_id'];
+        $this->reserva->mesa_id = $mesasDisponiveis[0]['id']; // Mesa principal
+        $this->reserva->data = $dados['data'];
+        $this->reserva->hora = $dados['hora'];
+        $this->reserva->num_pessoas = $dados['num_pessoas']; // Número total de pessoas
+        $this->reserva->status = 'Reservado';
+    
+        if ($this->reserva->criar()) {
+            $reserva_principal_id = $this->db->lastInsertId();
+            
+            // Se precisar de mais mesas, criar reservas auxiliares (apenas para bloquear as mesas)
+            $reservas_auxiliares = [];
+            for ($i = 1; $i < $mesasNecessarias; $i++) {
+                if ($this->criarReservaAuxiliar($dados, $mesasDisponiveis[$i]['id'], $reserva_principal_id)) {
+                    $reservas_auxiliares[] = $this->db->lastInsertId();
+                } else {
+                    // Se falhar, cancelar tudo
+                    $this->cancelarReserva($reserva_principal_id);
+                    $this->cancelarReservas($reservas_auxiliares);
+                    return [
+                        'sucesso' => false,
+                        'erro' => 'Erro ao reservar todas as mesas necessárias.'
+                    ];
+                }
             }
+    
+            return [
+                'sucesso' => true,
+                'mensagem' => 'Reserva criada com sucesso!',
+                'reserva_id' => $reserva_principal_id,
+                'mesas_reservadas' => $mesasNecessarias
+            ];
+        } else {
+            return [
+                'sucesso' => false,
+                'erro' => 'Erro ao criar reserva.'
+            ];
         }
-
-        return [
-            'sucesso' => true,
-            'mensagem' => 'Reserva criada com sucesso!',
-            'reservas_ids' => $reservasCriadas
-        ];
+    }
+    
+    // Novo método para criar reservas auxiliares (só para bloquear mesas)
+    private function criarReservaAuxiliar($dados, $mesa_id, $reserva_principal_id) {
+        $query = "INSERT INTO reservas (cliente_id, mesa_id, data, hora, num_pessoas, status, reserva_principal_id) 
+                  VALUES (:cliente_id, :mesa_id, :data, :hora, 0, 'Auxiliar', :reserva_principal_id)";
+        
+        $stmt = $this->db->prepare($query);
+        
+        $stmt->bindParam(":cliente_id", $dados['cliente_id']);
+        $stmt->bindParam(":mesa_id", $mesa_id);
+        $stmt->bindParam(":data", $dados['data']);
+        $stmt->bindParam(":hora", $dados['hora']);
+        $stmt->bindParam(":reserva_principal_id", $reserva_principal_id);
+        
+        return $stmt->execute();
     }
 
-    // NOVO MÉTODO PARA EDITAR RESERVA
+
     public function editarReserva($dados) {
         // Verificar se a reserva existe e pode ser editada
         $reservaExistente = $this->buscarReservaPorId($dados['reserva_id']);
@@ -117,7 +146,6 @@ class ReservaController {
         }
     }
 
-    // NOVO MÉTODO PARA BUSCAR RESERVA POR ID
     private function buscarReservaPorId($id) {
         $query = "SELECT * FROM reservas WHERE id = :id LIMIT 1";
         $stmt = $this->db->prepare($query);
@@ -130,42 +158,104 @@ class ReservaController {
         return false;
     }
 
-    // NOVO MÉTODO PARA BUSCAR RESERVAS POR CLIENTE
-    public function buscarReservasPorCliente($cliente_id) {
-        $query = "SELECT r.*, m.capacidade 
-                  FROM reservas r 
-                  JOIN mesas m ON r.mesa_id = m.id 
-                  WHERE r.cliente_id = :cliente_id 
-                  ORDER BY r.data DESC, r.hora DESC";
-        
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(":cliente_id", $cliente_id);
-        $stmt->execute();
+    // MÉTODO ATUALIZADO PARA INCLUIR FILTRO
+   public function buscarReservasPorCliente($cliente_id, $filtro = 'proximas') {
+    $hoje = date('Y-m-d');
+    $agora = date('H:i:s');
+    
+    switch($filtro) {
+        case 'proximas':
+            $query = "SELECT r.*, m.capacidade,
+                             (SELECT COUNT(*) FROM reservas r2 
+                              WHERE (r2.reserva_principal_id = r.id OR r2.id = r.id) 
+                              AND r2.status IN ('Reservado', 'Auxiliar')) as total_mesas
+                      FROM reservas r 
+                      JOIN mesas m ON r.mesa_id = m.id 
+                      WHERE r.cliente_id = :cliente_id 
+                      AND r.status = 'Reservado'
+                      AND r.num_pessoas > 0
+                      AND (r.data > :hoje OR (r.data = :hoje AND r.hora >= :agora))
+                      ORDER BY r.data ASC, r.hora ASC";
+            break;
+            
+        case 'passadas':
+            $query = "SELECT r.*, m.capacidade,
+                             (SELECT COUNT(*) FROM reservas r2 
+                              WHERE (r2.reserva_principal_id = r.id OR r2.id = r.id) 
+                              AND r2.status IN ('Reservado', 'Auxiliar', 'Concluído')) as total_mesas
+                      FROM reservas r 
+                      JOIN mesas m ON r.mesa_id = m.id 
+                      WHERE r.cliente_id = :cliente_id 
+                      AND r.num_pessoas > 0
+                      AND (r.status = 'Concluído' OR 
+                           (r.status = 'Reservado' AND (r.data < :hoje OR (r.data = :hoje AND r.hora < :agora))))
+                      ORDER BY r.data DESC, r.hora DESC";
+            break;
+            
+        case 'canceladas':
+            $query = "SELECT r.*, m.capacidade,
+                             (SELECT COUNT(*) FROM reservas r2 
+                              WHERE (r2.reserva_principal_id = r.id OR r2.id = r.id) 
+                              AND r2.status = 'Cancelado') as total_mesas
+                      FROM reservas r 
+                      JOIN mesas m ON r.mesa_id = m.id 
+                      WHERE r.cliente_id = :cliente_id 
+                      AND r.status = 'Cancelado'
+                      AND r.num_pessoas > 0
+                      ORDER BY r.data DESC, r.hora DESC";
+            break;
+            
+        default:
+            $query = "SELECT r.*, m.capacidade,
+                             (SELECT COUNT(*) FROM reservas r2 
+                              WHERE (r2.reserva_principal_id = r.id OR r2.id = r.id)) as total_mesas
+                      FROM reservas r 
+                      JOIN mesas m ON r.mesa_id = m.id 
+                      WHERE r.cliente_id = :cliente_id 
+                      AND r.num_pessoas > 0
+                      ORDER BY r.data DESC, r.hora DESC";
+    }
+    
+    $stmt = $this->db->prepare($query);
+    $stmt->bindParam(":cliente_id", $cliente_id);
+    
+    if ($filtro === 'proximas' || $filtro === 'passadas') {
+        $stmt->bindParam(":hoje", $hoje);
+        $stmt->bindParam(":agora", $agora);
+    }
+    
+    $stmt->execute();
+    
+    return [
+        'sucesso' => true,
+        'reservas' => $stmt->fetchAll(PDO::FETCH_ASSOC)
+    ];
+}
+
+public function cancelarReserva($reserva_id) {
+    // Cancelar a reserva principal
+    $query = "UPDATE reservas SET status = 'Cancelado' WHERE id = :id";
+    $stmt = $this->db->prepare($query);
+    $stmt->bindParam(":id", $reserva_id);
+    
+    if ($stmt->execute()) {
+        // Cancelar também as reservas auxiliares
+        $query_aux = "UPDATE reservas SET status = 'Cancelado' WHERE reserva_principal_id = :reserva_id";
+        $stmt_aux = $this->db->prepare($query_aux);
+        $stmt_aux->bindParam(":reserva_id", $reserva_id);
+        $stmt_aux->execute();
         
         return [
             'sucesso' => true,
-            'reservas' => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            'mensagem' => 'Reserva cancelada com sucesso!'
+        ];
+    } else {
+        return [
+            'sucesso' => false,
+            'erro' => 'Erro ao cancelar reserva.'
         ];
     }
-
-    // NOVO MÉTODO PARA CANCELAR RESERVA
-    public function cancelarReserva($reserva_id) {
-        $query = "UPDATE reservas SET status = 'Cancelado' WHERE id = :id";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(":id", $reserva_id);
-        
-        if ($stmt->execute()) {
-            return [
-                'sucesso' => true,
-                'mensagem' => 'Reserva cancelada com sucesso!'
-            ];
-        } else {
-            return [
-                'sucesso' => false,
-                'erro' => 'Erro ao cancelar reserva.'
-            ];
-        }
-    }
+}
 
     private function validarDadosReserva($dados) {
         $validator = new ReservaValidator();

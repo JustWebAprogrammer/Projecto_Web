@@ -3,34 +3,28 @@ function limitarNumeroInput(input, maxValue = 60) {
     input.addEventListener('input', function(e) {
         let value = parseInt(e.target.value);
         
-        // Se o valor for maior que o máximo permitido
         if (value > maxValue) {
             e.target.value = maxValue;
         }
         
-        // Se o valor for menor que 1
         if (value < 1 && e.target.value !== '') {
             e.target.value = 1;
         }
     });
     
-    // Impedir digitação de caracteres que resultariam em números > maxValue
     input.addEventListener('keydown', function(e) {
         const currentValue = e.target.value;
         const key = e.key;
         
-        // Permitir teclas de controle (backspace, delete, arrows, etc.)
         if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab'].includes(key)) {
             return;
         }
         
-        // Permitir apenas números
         if (!/\d/.test(key)) {
             e.preventDefault();
             return;
         }
         
-        // Verificar se o novo valor seria maior que maxValue
         const newValue = currentValue + key;
         if (parseInt(newValue) > maxValue) {
             e.preventDefault();
@@ -39,12 +33,12 @@ function limitarNumeroInput(input, maxValue = 60) {
 }
 
 function validateForm(event) {
-    event.preventDefault(); // Impede o envio até a validação
+    event.preventDefault();
 
     // Limpar mensagem de erro anterior
     const errorMessage = document.getElementById('error-message');
     errorMessage.textContent = '';
-    errorMessage.style.color = '#ff4d4d'; // Reset cor
+    errorMessage.style.color = '#ff4d4d';
 
     // Obter valores dos campos
     const dateInput = document.getElementById('reservation-date').value;
@@ -55,26 +49,26 @@ function validateForm(event) {
     // Validar Data Desejada
     const selectedDate = new Date(dateInput);
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Zera a hora pra evitar tretas de milissegundos
+    today.setHours(0, 0, 0, 0);
 
     const maxDate = new Date();
-    maxDate.setDate(today.getDate() + 7); // 7 dias no futuro
-    maxDate.setHours(0, 0, 0, 0); // Zera também pra manter a comparação justa
+    maxDate.setDate(today.getDate() + 7);
+    maxDate.setHours(0, 0, 0, 0);
 
     if (selectedDate < today) {
-        errorMessage.textContent = 'A data tem que ser hoje ou no futuro. A menos que você tenha uma máquina do tempo.';
+        errorMessage.textContent = 'A data tem que ser hoje ou no futuro.';
         return false;
     }
 
     if (selectedDate > maxDate) {
-        errorMessage.textContent = 'Você só pode marcar até 7 dias no futuro. Mais que isso, nem o Supremo Senhor Kaio sabe o que vai acontecer.';
+        errorMessage.textContent = 'Você só pode marcar até 7 dias no futuro.';
         return false;
     }
     
     // Validar Número de Pessoas
     const numPeople = parseInt(numPeopleInput);
     if (isNaN(numPeople)) {
-        errorMessage.textContent = 'Isso nem é um número. Tenta de novo.';
+        errorMessage.textContent = 'Por favor, insira um número válido de pessoas.';
         return false;
     }
     if (numPeople <= 0) {
@@ -82,7 +76,7 @@ function validateForm(event) {
         return false;
     }
     if (numPeople > 60) {
-        errorMessage.textContent = 'O número de pessoas deve ser menor que 60';
+        errorMessage.textContent = 'O número máximo de pessoas é 60.';
         return false;
     }
 
@@ -93,7 +87,7 @@ function validateForm(event) {
         return false;
     }
 
-    // Validação especial para edição: verificar se ainda é possível editar
+    // Validação especial para edição
     if (isEdit) {
         const reservaDateTime = new Date(dateInput + 'T' + timeInput);
         const agora = new Date();
@@ -105,7 +99,7 @@ function validateForm(event) {
         }
     }
 
-    // Mostrar confirmação especial para grupos grandes
+    // Mostrar confirmação para grupos grandes
     const mesasNecessarias = calcularMesasNecessarias(numPeople);
     if (mesasNecessarias > 1) {
         const confirmar = confirm(
@@ -119,10 +113,16 @@ function validateForm(event) {
         }
     }
 
-    // Enviar dados via formulário tradicional
-    enviarReservaFormulario(dateInput, timeInput, numPeople, isEdit);
+    // Mostrar loading
+    const submitBtn = document.querySelector('#reserva-form button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = isEdit ? 'Salvando...' : 'Processando...';
+    submitBtn.disabled = true;
+
+    // Enviar formulário
+    document.getElementById('reserva-form').submit();
     
-    return false; // Impedir envio tradicional do form
+    return false;
 }
 
 function setDateLimits() {
@@ -130,26 +130,21 @@ function setDateLimits() {
     const today = new Date();
     const maxDate = new Date();
     
-    // Set min to today
     dateInput.min = today.toISOString().split('T')[0];
     
-    // Set max to 7 days from today
     maxDate.setDate(today.getDate() + 7);
     dateInput.max = maxDate.toISOString().split('T')[0];
 
-    // Add time limits
     const timeInput = document.getElementById('reservation-time');
     timeInput.min = "09:00";
     timeInput.max = "22:00";
 }
 
-// Verificar se estamos em modo de edição
 function checkEditMode() {
     const urlParams = new URLSearchParams(window.location.search);
     const isEdit = urlParams.get('edit') === 'true';
     
     if (isEdit) {
-        // Preencher campos com dados existentes
         const data = urlParams.get('data');
         const horario = urlParams.get('horario');
         const pessoas = urlParams.get('pessoas');
@@ -157,10 +152,16 @@ function checkEditMode() {
         
         document.getElementById('edit-notice').style.display = 'block';
         
-        // Converter data de DD/MM/YYYY para YYYY-MM-DD
+        // Converter data se necessário
         if (data) {
-            const [dia, mes, ano] = data.split('/');
-            document.getElementById('reservation-date').value = `${ano}-${mes}-${dia}`;
+            let dataFormatted;
+            if (data.includes('/')) {
+                const [dia, mes, ano] = data.split('/');
+                dataFormatted = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+            } else {
+                dataFormatted = data;
+            }
+            document.getElementById('reservation-date').value = dataFormatted;
         }
         
         if (horario) {
@@ -171,12 +172,25 @@ function checkEditMode() {
             document.getElementById('num-people').value = pessoas;
         }
         
-        // Alterar título e botão
+        // Alterar textos da interface
         document.querySelector('.reserva-section h2').textContent = 'Editar Reserva';
         document.querySelector('.reserva-section p').textContent = 'Modifique os detalhes da sua reserva';
         document.querySelector('#reserva-form button[type="submit"]').textContent = 'Salvar Alterações';
         
-        // Armazenar ID da reserva para uso posterior
+        // Adicionar campo hidden para método PUT
+        const methodField = document.createElement('input');
+        methodField.type = 'hidden';
+        methodField.name = '_method';
+        methodField.value = 'PUT';
+        document.getElementById('reserva-form').appendChild(methodField);
+        
+        // Adicionar campo hidden para ID da reserva
+        const idField = document.createElement('input');
+        idField.type = 'hidden';
+        idField.name = 'reserva_id';
+        idField.value = reservaId;
+        document.getElementById('reserva-form').appendChild(idField);
+        
         document.getElementById('reserva-form').dataset.editId = reservaId;
     }
 }
@@ -188,7 +202,6 @@ function calcularMesasNecessarias(numPessoas) {
     return Math.ceil(numPessoas / 4);
 }
 
-// Função para distribuir pessoas nas mesas
 function distribuirPessoas(numPessoas, numMesas) {
     const distribuicao = [];
     const pessoasPorMesa = Math.floor(numPessoas / numMesas);
@@ -205,9 +218,7 @@ function distribuirPessoas(numPessoas, numMesas) {
     return distribuicao;
 }
 
-// Função para mostrar informações sobre as mesas necessárias
 function mostrarInfoMesas(numPessoas) {
-    // Remover aviso anterior se existir
     const avisoExistente = document.querySelector('.info-mesas-necessarias');
     if (avisoExistente) {
         avisoExistente.remove();
@@ -218,7 +229,6 @@ function mostrarInfoMesas(numPessoas) {
     const mesasNecessarias = calcularMesasNecessarias(numPessoas);
     const distribuicao = distribuirPessoas(numPessoas, mesasNecessarias);
     
-    // Criar elemento de informação
     const infoDiv = document.createElement('div');
     infoDiv.className = 'info-mesas-necessarias';
     
@@ -253,119 +263,34 @@ function mostrarInfoMesas(numPessoas) {
         </div>
     `;
     
-    // Inserir após o campo de número de pessoas
     const numPeopleGroup = document.querySelector('#num-people').closest('.form-group');
     numPeopleGroup.insertAdjacentElement('afterend', infoDiv);
 }
 
-// NOVA FUNÇÃO - Enviar via formulário tradicional em vez de JSON
-function enviarReservaFormulario(data, hora, numPessoas, isEdit = false) {
-    const errorMessage = document.getElementById('error-message');
-    
-    // Mostrar loading
-    errorMessage.textContent = 'Processando reserva...';
-    errorMessage.style.color = '#007bff';
-    
-    // Criar formulário dinamicamente
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'BackEnd/api/reservas.php';
-    
-    // Adicionar campos do formulário
-    const campos = [
-        { name: 'data', value: data },
-        { name: 'hora', value: hora },
-        { name: 'num_pessoas', value: numPessoas },
-        { name: 'cliente_id', value: 1 } // Temporário - implementar sistema de login depois
-    ];
-    
-    // Se é edição, adicionar método PUT e ID da reserva
-    if (isEdit) {
-        campos.push(
-            { name: '_method', value: 'PUT' },
-            { name: 'reserva_id', value: isEdit }
-        );
-    }
-    
-    // Criar inputs hidden
-    campos.forEach(campo => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = campo.name;
-        input.value = campo.value;
-        form.appendChild(input);
-    });
-    
-    // Adicionar formulário ao body e submeter
-    document.body.appendChild(form);
-    form.submit();
-}
-
-// NOVA FUNÇÃO - Alternativa usando fetch mas com FormData
-function enviarReservaFetch(data, hora, numPessoas, isEdit = false) {
-    const errorMessage = document.getElementById('error-message');
-    
-    // Mostrar loading
-    errorMessage.textContent = 'Processando reserva...';
-    errorMessage.style.color = '#007bff';
-    
-    // Criar FormData
-    const formData = new FormData();
-    formData.append('data', data);
-    formData.append('hora', hora);
-    formData.append('num_pessoas', numPessoas);
-    formData.append('cliente_id', 1); // Temporário
-    
-    if (isEdit) {
-        formData.append('_method', 'PUT');
-        formData.append('reserva_id', isEdit);
-    }
-    
-    // Enviar com fetch
-    fetch('../BackEnd/api/reservas.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        if (response.headers.get('content-type')?.includes('application/json')) {
-            return response.json();
-        } else {
-            // Se não for JSON, provavelmente houve redirecionamento
-            // Redirecionar para a página adequada
-            const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
-            alert(mensagem);
-            window.location.href = '../Perfil.php';
-            return;
-        }
-    })
-    .then(resultado => {
-        if (resultado && resultado.sucesso) {
-            const mensagem = isEdit ? 'Reserva editada com sucesso!' : 'Reserva criada com sucesso!';
-            alert(mensagem);
-            window.location.href = '../Perfil.php';
-        } else if (resultado && resultado.erro) {
-            errorMessage.textContent = resultado.erro;
-            errorMessage.style.color = '#ff4d4d';
-        }
-    })
-    .catch(error => {
-        console.error('Erro:', error);
-        errorMessage.textContent = 'Erro de conexão com o servidor. Tente novamente.';
-        errorMessage.style.color = '#ff4d4d';
-    });
-}
-
-// Event listeners principais
+// Verificar se há mensagens de erro ou sucesso na URL
 document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const erro = urlParams.get('erro');
+    const sucesso = urlParams.get('sucesso');
+    
+    const errorMessage = document.getElementById('error-message');
+    
+    if (erro) {
+        errorMessage.textContent = decodeURIComponent(erro);
+        errorMessage.style.color = '#ff4d4d';
+    } else if (sucesso) {
+        errorMessage.textContent = decodeURIComponent(sucesso);
+        errorMessage.style.color = '#28a745';
+    }
+    
     setDateLimits();
     checkEditMode();
     
-    // Aplicar limitação aos inputs de número de pessoas
+    // Configurar input de número de pessoas
     const numPeopleInput = document.getElementById('num-people');
     if (numPeopleInput) {
         limitarNumeroInput(numPeopleInput, 60);
         
-        // Monitorar mudanças no número de pessoas
         numPeopleInput.addEventListener('input', function() {
             const numPessoas = parseInt(this.value) || 0;
             mostrarInfoMesas(numPessoas);
