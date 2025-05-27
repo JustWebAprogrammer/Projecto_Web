@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Administrativo - Dona Xinga</title>
+    <link rel="stylesheet" href="Css/Universal/nav.css">
+    <link rel="stylesheet" href="Css/Universal/footer.css">
+    <link rel="stylesheet" href="Css/PaginaAdmin/admin-login.css">
+</head>
+<body>
+    <nav>
+        <div class="Logotipo">
+            <img src="Fotos/Icondesite.png" alt="Logo Dona Xinga">
+        </div>
+        <div class="navbar">
+            <button onclick="location.href='index.html'">Início</button>
+            <button onclick="location.href='Login.html'">Login Cliente</button>
+            <button onclick="location.href='Cadastro.html'">Cadastro</button>
+        </div>
+    </nav>
+
+    <main class="login-main">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <img src="Fotos/Icondesite.png" alt="Logo Dona Xinga" class="login-logo">
+                    <h1>Acesso Administrativo</h1>
+                    <p>Faça login para acessar o painel administrativo</p>
+                </div>
+
+                <!-- Mensagens de erro/sucesso -->
+                <div id="mensagem-container" style="display: none;">
+                    <div id="mensagem" class="mensagem"></div>
+                </div>
+
+                <form method="POST" action="BackEnd/api/admin-login.php" class="login-form">
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="senha">Senha:</label>
+                        <input type="password" id="senha" name="senha" required>
+                    </div>
+
+                    <button type="submit" class="login-btn">Entrar</button>
+                </form>
+
+                <div class="login-footer">
+                    <p><a href="index.html">Voltar ao site principal</a></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer-section">
+        <div class="footer-container">
+            <div class="footer-logo">
+                <img src="Fotos/Icondesite.png" alt="Logo do Restaurante">
+                <p>Lar Da Dona Xinga</p>
+            </div>
+            
+            <div class="footer-help">
+                <h3>Suporte Técnico</h3>
+                <p>Entre em contato conosco: <a href="mailto:Tomaszinho19@gmail.com">suporte@restaurante.com</a></p>
+                <p>Telefone: (+244) 942-761-755</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Restaurante Dona Xinga - Acesso Administrativo</p>
+        </div>
+    </footer>
+
+    <script src="Js/PaginaAdmin/admin-login.js"></script>
+</body>
+</html>
