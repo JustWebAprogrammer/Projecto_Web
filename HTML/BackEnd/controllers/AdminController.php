@@ -358,5 +358,137 @@ class AdminController {
             ];
         }
     }
+
+// Adicionar ao final da classe AdminController, antes do fechamento
+
+public function obterMesasDisponiveis($data, $hora, $numPessoas) {
+    try {
+        $stmt = $this->db->prepare("
+            SELECT m.* FROM mesas m 
+            WHERE m.capacidade >= ? 
+            AND m.id NOT IN (
+                SELECT r.mesa_id FROM reservas r 
+                WHERE r.data = ? AND r.hora = ? AND r.status = 'Reservado'
+            )
+            ORDER BY m.capacidade ASC
+        ");
+        $stmt->execute([$numPessoas, $data, $hora]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        return [];
+    }
 }
+
+public function criarReservaComoAdmin($clienteId, $mesaId, $data, $hora, $numPessoas) {
+    try {
+        // Verificar se a mesa está disponível
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*) as conflitos FROM reservas 
+            WHERE mesa_id = ? AND data = ? AND hora = ? AND status = 'Reservado'
+        ");
+        $stmt->execute([$mesaId, $data, $hora]);
+        $conflitos = $stmt->fetch(PDO::FETCH_ASSOC)['conflitos'];
+
+        if ($conflitos > 0) {
+            return [
+                'sucesso' => false,
+                'erro' => 'Mesa não disponível para este horário'
+            ];
+        }
+
+        // Verificar capacidade da mesa
+        $stmt = $this->db->prepare("SELECT capacidade FROM mesas WHERE id = ?");
+        $stmt->execute([$mesaId]);
+        $mesa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$mesa || $mesa['capacidade'] < $numPessoas) {
+            return [
+                'sucesso' => false,
+                'erro' => 'Mesa não adequada para o número de pessoas'
+            ];
+        }
+
+        // Criar reserva
+        $stmt = $this->db->prepare("
+            INSERT INTO reservas (cliente_id, mesa_id, data, hora, num_pessoas, status) 
+            VALUES (?, ?, ?, ?, ?, 'Reservado')
+        ");
+        $stmt->execute([$clienteId, $mesaId, $data, $hora, $numPessoas]);
+
+        return [
+            'sucesso' => true,
+            'mensagem' => 'Reserva criada com sucesso!',
+            'reserva_id' => $this->db->lastInsertId()
+        ];
+    } catch (Exception $e) {
+        return [
+            'sucesso' => false,
+            'erro' => 'Erro ao criar reserva: ' . $e->getMessage()
+        ];
+    }
+}
+
+public function obterReservasAdmin($filtro = 'todas') {
+    try {
+        $where = '';
+        $params = [];
+
+        switch ($filtro) {
+            case 'hoje':
+                $where = 'WHERE r.data = CURDATE()';
+                break;
+            case 'futuras':
+                $where = 'WHERE r.data >= CURDATE() AND r.status = "Reservado"';
+                break;
+            case 'passadas':
+                $where = 'WHERE r.data < CURDATE()';
+                break;
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT r.*, c.nome as cliente_nome, c.email as cliente_email, 
+                   m.capacidade as mesa_capacidade
+            FROM reservas r
+            JOIN clientes c ON r.cliente_id = c.id
+            JOIN mesas m ON r.mesa_id = m.id
+            $where
+            ORDER BY r.data DESC, r.hora DESC
+        ");
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+public function cancelarReservaAdmin($reservaId) {
+    try {
+        $stmt = $this->db->prepare("
+            UPDATE reservas SET status = 'Cancelado', data_atualizacao = NOW() 
+            WHERE id = ? AND status = 'Reservado'
+        ");
+        $stmt->execute([$reservaId]);
+
+        if ($stmt->rowCount() > 0) {
+            return [
+                'sucesso' => true,
+                'mensagem' => 'Reserva cancelada com sucesso!'
+            ];
+        } else {
+            return [
+                'sucesso' => false,
+                'erro' => 'Reserva não encontrada ou já foi processada'
+            ];
+        }
+    } catch (Exception $e) {
+        return [
+            'sucesso' => false,
+            'erro' => 'Erro ao cancelar reserva: ' . $e->getMessage()
+        ];
+    }
+}
+
+}
+
+
 ?>
