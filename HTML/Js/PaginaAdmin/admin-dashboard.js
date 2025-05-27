@@ -30,10 +30,20 @@ function verificarMensagens() {
 async function carregarEstatisticas() {
     try {
         const response = await fetch('BackEnd/api/admin-dashboard.php?acao=estatisticas');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         if (data.erro) {
             console.error('Erro ao carregar estatísticas:', data.erro);
+            // Mostrar valores padrão em caso de erro
+            document.getElementById('total-clientes').textContent = '0';
+            document.getElementById('reservas-hoje').textContent = '0';
+            document.getElementById('mesas-ocupadas').textContent = '0';
+            document.getElementById('taxa-ocupacao').textContent = '0%';
             return;
         }
 
@@ -41,10 +51,15 @@ async function carregarEstatisticas() {
         document.getElementById('total-clientes').textContent = data.totalClientes || 0;
         document.getElementById('reservas-hoje').textContent = data.reservasHoje || 0;
         document.getElementById('mesas-ocupadas').textContent = data.mesasOcupadas || 0;
-        document.getElementById('taxa-ocupacao').textContent = data.taxaOcupacao + '%' || '0%';
+        document.getElementById('taxa-ocupacao').textContent = (data.taxaOcupacao || 0) + '%';
 
     } catch (error) {
         console.error('Erro na requisição:', error);
+        // Mostrar valores padrão em caso de erro
+        document.getElementById('total-clientes').textContent = '0';
+        document.getElementById('reservas-hoje').textContent = '0';
+        document.getElementById('mesas-ocupadas').textContent = '0';
+        document.getElementById('taxa-ocupacao').textContent = '0%';
     }
 }
 
